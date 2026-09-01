@@ -1,0 +1,86 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# IntelliJ / Android Studio related
+*.iml
+*.ipr
+*.iws
+.idea/
+.gradle/
+local.properties
+
+# Visual Studio Code related
+.vscode/
+
+# Flutter/Dart/Pub related
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+/build/
+/coverage/
+
+# Windows / Linux / macOS native desktop builds
+windows/flutter/ephemeral/
+linux/flutter/ephemeral/
+macos/Flutter/ephemeral/
+
+# iOS related
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+ios/Flutter/Generated.h
+ios/Flutter/Generated.m
+ios/Flutter/ephemeral/
+ios/.symlinks/
+ios/Pods/
+ios/Podfile.lock
+ios/**/GeneratedPluginRegistrant.h
+ios/**/GeneratedPluginRegistrant.m
+
+# macOS related
+macos/Flutter/GeneratedPluginRegistrant.swift
+macos/Flutter/Generated.xcconfig
+macos/Flutter/flutter_export_environment.sh
+macos/Pods/
+macos/Podfile.lock
+
+# Symbolication related
+app.*.symbols
+
+# Obfuscation related
+app.*.map.json
+
+# Android Studio will place build artifacts here
+/android/app/debug
+/android/app/profile
+/android/app/release
+android/app/debug/
+android/app/profile/
+android/app/release/
+android/.gradle/
+android/captures/
+android/gradleBuild/
+
+# Widget Preview related
+.widget_preview/
+
+# Secrets / Private Keystores
+*.jks
+*.keystore
+key.properties

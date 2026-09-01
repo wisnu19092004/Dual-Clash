@@ -1,0 +1,590 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import 'package:game_papan/chess/chess_ai.dart';
+import 'package:game_papan/chess/chess_board.dart';
+import 'package:game_papan/chess/chess_piece.dart';
+import 'package:game_papan/models/bot_difficulty.dart';
+import 'package:game_papan/models/game_enums.dart';
+import 'package:game_papan/services/ad_service.dart';
+import 'package:game_papan/services/auth_service.dart';
+import 'package:game_papan/services/language_provider.dart';
+import 'package:game_papan/services/sound_effects.dart';
+import 'package:game_papan/theme/app_colors.dart';
+import 'package:game_papan/theme/theme_provider.dart';
+import 'package:game_papan/utils/time_formatter.dart';
+import 'package:game_papan/widgets/game_emblem_icon.dart';
+import 'package:game_papan/widgets/chess_board_view.dart';
+import 'package:game_papan/widgets/chess_player_header.dart';
+import 'package:game_papan/widgets/game_status_bar.dart';
+import 'package:game_papan/widgets/match_end_dialog.dart';
+import 'package:game_papan/widgets/confirm_dialog.dart';
+import 'package:game_papan/widgets/interactive_button.dart';
+
+class ChessGameScreen extends StatefulWidget {
+  final GameMode mode;
+  final BotDifficulty botDifficulty;
+  final ChessColor playerColor;
+  final int durationMinutes; // 0 = unlimited
+
+  const ChessGameScreen({
+    super.key,
+    required this.mode,
+    this.botDifficulty = BotDifficulty.intermediate,
+    this.playerColor = ChessColor.white,
+    this.durationMinutes = 10,
+  });
+
+  @override
+  State<ChessGameScreen> createState() => _ChessGameScreenState();
+}
+
+class _ChessGameScreenState extends State<ChessGameScreen> {
+  late ChessBoard _board;
+  ChessPosition? _selectedPosition;
+  List<ChessMove> _validMovesForSelected = [];
+  bool _isAiThinking = false;
+  bool _gameOver = false;
+  late int _whiteTimerSeconds;
+  late int _blackTimerSeconds;
+  Timer? _matchTimer;
+  ChessPosition? _lastMoveFrom;
+  ChessPosition? _lastMoveTo;
+  ChessPiece? _animatedPiece;
+
+  bool get _isUnlimitedTimer => widget.durationMinutes == 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _startNewGame();
+  }
+
+  void _startNewGame() {
+    _matchTimer?.cancel();
+    final initialSeconds = _isUnlimitedTimer ? 0 : widget.durationMinutes * 60;
+    setState(() {
+      _board = ChessBoard();
+      _selectedPosition = null;
+      _validMovesForSelected = [];
+      _isAiThinking = false;
+      _gameOver = false;
+      _whiteTimerSeconds = initialSeconds;
+      _blackTimerSeconds = initialSeconds;
+      _lastMoveFrom = null;
+      _lastMoveTo = null;
+      _animatedPiece = null;
+    });
+
+    _startTimer();
+
+    if (widget.mode == GameMode.vsBot &&
+        widget.playerColor == ChessColor.black) {
+      _triggerAiMove();
+    }
+  }
+
+  void _startTimer() {
+    _matchTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_gameOver) {
+        timer.cancel();
+        return;
+      }
+      setState(() {
+        if (_isUnlimitedTimer) {
+          if (_board.turn == ChessColor.white) {
+            _whiteTimerSeconds++;
+          } else {
+            _blackTimerSeconds++;
+          }
+        } else {
+          if (_board.turn == ChessColor.white) {
+            if (_whiteTimerSeconds > 0) _whiteTimerSeconds--;
+            if (_whiteTimerSeconds == 0) _handleTimeout(ChessColor.white);
+          } else {
+            if (_blackTimerSeconds > 0) _blackTimerSeconds--;
+            if (_blackTimerSeconds == 0) _handleTimeout(ChessColor.black);
+          }
+        }
+      });
+    });
+  }
+
+  void _handleTimeout(ChessColor timedOutColor) {
+    if (_gameOver) return;
+    _gameOver = true;
+    _matchTimer?.cancel();
+
+    final winnerColor = timedOutColor == ChessColor.white
+        ? ChessColor.black
+        : ChessColor.white;
+    final isPlayerWin =
+        widget.mode == GameMode.vsPlayer || widget.playerColor == winnerColor;
+
+    _onGameEnded(
+      outcome: isPlayerWin ? MatchOutcome.win : MatchOutcome.loss,
+      title: 'Waktu Habis!',
+      message:
+          '${timedOutColor == ChessColor.white ? "Putih" : "Hitam"} kehabisan waktu.',
+    );
+  }
+
+  @override
+  void dispose() {
+    _matchTimer?.cancel();
+    super.dispose();
+  }
+
+  void _onSquareTap(int row, int col) {
+    if (_gameOver || _isAiThinking) return;
+
+    if (widget.mode == GameMode.vsBot && _board.turn != widget.playerColor) {
+      return;
+    }
+
+    final tappedPos = ChessPosition(row, col);
+    final tappedPiece = _board.getPiece(tappedPos);
+
+    if (_selectedPosition == tappedPos) {
+      setState(() {
+        _selectedPosition = null;
+        _validMovesForSelected = [];
+      });
+      return;
+    }
+
+    if (_selectedPosition != null) {
+      final matchingMove = _validMovesForSelected
+          .where((m) => m.to == tappedPos)
+          .firstOrNull;
+
+      if (matchingMove != null) {
+        _executePlayerMove(matchingMove);
+        return;
+      }
+    }
+
+    if (tappedPiece != null && tappedPiece.color == _board.turn) {
+      SoundEffects.playButtonClick();
+      setState(() {
+        _selectedPosition = tappedPos;
+        _validMovesForSelected = _board.getLegalMovesForPosition(tappedPos);
+      });
+    } else {
+      setState(() {
+        _selectedPosition = null;
+        _validMovesForSelected = [];
+      });
+    }
+  }
+
+  void _executePlayerMove(ChessMove move) {
+    final movingPiece = _board.getPiece(move.from);
+    ChessMove finalMove = move;
+    if (move.promotion == null) {
+      final piece = _board.getPiece(move.from);
+      if (piece?.type == ChessPieceType.pawn) {
+        if ((piece!.color == ChessColor.white && move.to.row == 0) ||
+            (piece.color == ChessColor.black && move.to.row == 7)) {
+          finalMove = ChessMove(
+            from: move.from,
+            to: move.to,
+            capturedPiece: move.capturedPiece,
+            promotion: ChessPieceType.queen,
+            isCastling: move.isCastling,
+            isEnPassant: move.isEnPassant,
+          );
+        }
+      }
+    }
+
+    if (finalMove.capturedPiece != null || finalMove.isEnPassant) {
+      SoundEffects.playCapturePiece();
+    } else {
+      SoundEffects.playMovePiece();
+    }
+
+    setState(() {
+      _lastMoveFrom = finalMove.from;
+      _lastMoveTo = finalMove.to;
+      _animatedPiece = movingPiece;
+      _board.makeMove(finalMove);
+      _selectedPosition = null;
+      _validMovesForSelected = [];
+    });
+
+    _checkGameOverState();
+
+    if (!_gameOver &&
+        widget.mode == GameMode.vsBot &&
+        _board.turn != widget.playerColor) {
+      _triggerAiMove();
+    }
+  }
+
+  void _triggerAiMove() async {
+    setState(() {
+      _isAiThinking = true;
+    });
+
+    final minDelay = Future.delayed(
+      Duration(milliseconds: 600 + (widget.botDifficulty.index * 250)),
+    );
+    final aiComputation = ChessAiEngine.getBestMoveAsync(
+      _board,
+      widget.botDifficulty,
+    );
+
+    final results = await Future.wait([minDelay, aiComputation]);
+    if (!mounted || _gameOver) return;
+
+    final bestMove = results[1] as ChessMove?;
+
+    if (bestMove != null) {
+      final movingPiece = _board.getPiece(bestMove.from);
+      if (bestMove.capturedPiece != null || bestMove.isEnPassant) {
+        SoundEffects.playCapturePiece();
+      } else {
+        SoundEffects.playMovePiece();
+      }
+
+      setState(() {
+        _lastMoveFrom = bestMove.from;
+        _lastMoveTo = bestMove.to;
+        _animatedPiece = movingPiece;
+        _board.makeMove(bestMove);
+        _isAiThinking = false;
+      });
+      _checkGameOverState();
+    } else {
+      setState(() {
+        _isAiThinking = false;
+      });
+    }
+  }
+
+  void _checkGameOverState() {
+    if (_board.isCheck) {
+      SoundEffects.playCheck();
+    }
+
+    if (_board.isCheckmate) {
+      _gameOver = true;
+      _matchTimer?.cancel();
+      final winnerColor = _board.turn == ChessColor.white
+          ? ChessColor.black
+          : ChessColor.white;
+      final isPlayerWinner =
+          widget.mode == GameMode.vsPlayer || widget.playerColor == winnerColor;
+
+      _onGameEnded(
+        outcome: isPlayerWinner ? MatchOutcome.win : MatchOutcome.loss,
+        title: 'Checkmate! (Skakmat)',
+        message:
+            '${winnerColor == ChessColor.white ? "Putih" : "Hitam"} memenangkan pertandingan catur!',
+      );
+    } else if (_board.isStalemate) {
+      _gameOver = true;
+      _matchTimer?.cancel();
+      _onGameEnded(
+        outcome: MatchOutcome.draw,
+        title: 'Draw (Remis / Stalemate)',
+        message: 'Permainan berakhir seri tanpa pemenang.',
+      );
+    }
+  }
+
+  void _resign() {
+    if (_gameOver) return;
+    _gameOver = true;
+    _matchTimer?.cancel();
+    _onGameEnded(
+      outcome: MatchOutcome.loss,
+      title: Provider.of<LanguageProvider>(
+        context,
+        listen: false,
+      ).tr('resigned_title'),
+      message: Provider.of<LanguageProvider>(
+        context,
+        listen: false,
+      ).tr('resigned_message'),
+    );
+  }
+
+  Future<void> _onGameEnded({
+    required MatchOutcome outcome,
+    required String title,
+    required String message,
+  }) async {
+    final authService = Provider.of<AuthService>(context, listen: false);
+
+    int opponentRating = widget.mode == GameMode.vsBot
+        ? widget.botDifficulty.rating
+        : 1200;
+    String opponentName = widget.mode == GameMode.vsBot
+        ? widget.botDifficulty.title
+        : 'Player 2';
+
+    final ratingDelta = await authService.recordMatchResult(
+      gameType: GameType.chess,
+      gameMode: widget.mode,
+      outcome: outcome,
+      opponentRating: opponentRating,
+      opponentName: opponentName,
+      totalMoves: _board.moveHistory.length,
+    );
+
+    if (!mounted) return;
+
+    AdService.instance.showPostMatchInterstitialAd(
+      context,
+      onAdClosed: () {
+        if (!mounted) return;
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => MatchEndDialog(
+            outcome: outcome,
+            ratingDelta: ratingDelta,
+            gameType: GameType.chess,
+            gameMode: widget.mode,
+            title: title,
+            message: message,
+            onPlayAgain: () {
+              Navigator.pop(ctx);
+              _startNewGame();
+            },
+            onMainMenu: () {
+              Navigator.pop(ctx);
+              if (mounted) {
+                Navigator.of(context).pop();
+              }
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final authService = Provider.of<AuthService>(context);
+    final user = authService.currentUser;
+    final lang = Provider.of<LanguageProvider>(context);
+    final isDark = themeProvider.isDarkMode;
+
+    final isBlackPerspective = widget.playerColor == ChessColor.black;
+
+    // Top player is the opponent relative to active player perspective
+    final topPlayerColor = isBlackPerspective
+        ? ChessColor.white
+        : ChessColor.black;
+    final bottomPlayerColor = isBlackPerspective
+        ? ChessColor.black
+        : ChessColor.white;
+
+    final topPlayerName = widget.mode == GameMode.vsBot
+        ? widget.botDifficulty.title
+        : (isBlackPerspective ? 'Pemain 1 (Putih)' : 'Pemain 2 (Hitam)');
+
+    final topPlayerRating = widget.mode == GameMode.vsBot
+        ? widget.botDifficulty.rating
+        : 1200;
+
+    final bottomPlayerName = widget.mode == GameMode.vsBot
+        ? (user?.displayName ?? 'Player (Anda)')
+        : (isBlackPerspective
+              ? (user?.displayName ?? 'Pemain 2 (Hitam)')
+              : (user?.displayName ?? 'Pemain 1 (Putih)'));
+
+    final bottomPlayerRating = user?.chessRating ?? 1200;
+
+    String statusText;
+    Color statusColor = AppColors.textColor(context);
+
+    if (_gameOver) {
+      statusText = 'Permainan Berakhir';
+      statusColor = AppColors.warning;
+    } else if (_isAiThinking) {
+      statusText =
+          'Bot (${widget.botDifficulty.title}) sedang menganalisis langkah...';
+      statusColor = AppColors.secondary;
+    } else if (_board.isCheck) {
+      statusText =
+          'SKAK! Raja ${_board.turn == ChessColor.white ? "Putih" : "Hitam"} Terancam!';
+      statusColor = AppColors.error;
+    } else {
+      final isMyTurn =
+          widget.mode == GameMode.vsPlayer || _board.turn == widget.playerColor;
+      statusText = isMyTurn
+          ? 'Giliran Anda (${_board.turn == ChessColor.white ? "Putih" : "Hitam"})'
+          : 'Giliran ${_board.turn == ChessColor.white ? "Putih" : "Hitam"}';
+      statusColor = _board.turn == ChessColor.white
+          ? const Color(0xFFFBBF24)
+          : const Color(0xFFD97706);
+    }
+
+    return PopScope(
+      canPop: false,
+      child: Scaffold(
+        backgroundColor: AppColors.background(context),
+        appBar: AppBar(
+          automaticallyImplyLeading: false,
+          backgroundColor: AppColors.surface(context),
+          elevation: 0,
+          title: Row(
+            children: [
+              const GameEmblemIcon(isChess: true, size: 22),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Catur ${widget.mode == GameMode.vsBot ? "vs ${widget.botDifficulty.title}" : "Pass & Play"}',
+                  style: GoogleFonts.cinzel(
+                    color: AppColors.textColor(context),
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+              child: InteractiveButton(
+                onPressed: () => themeProvider.toggleTheme(),
+                padding: const EdgeInsets.all(8),
+                backgroundColor: Colors.transparent,
+                child: Icon(
+                  isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                  color: isDark ? const Color(0xFFFBBF24) : AppColors.primary,
+                  size: 20,
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+              child: InteractiveButton(
+                onPressed: () {
+                  if (_gameOver) return;
+                  showDialog(
+                    context: context,
+                    builder: (ctx) => ConfirmDialog(
+                      title: lang.tr('resign_title'),
+                      message: lang.tr('resign_message'),
+                      confirmText: lang.tr('confirm_resign'),
+                      cancelText: lang.tr('cancel'),
+                      confirmColor: Colors.redAccent,
+                      icon: Icons.flag_rounded,
+                      onConfirm: _resign,
+                    ),
+                  );
+                },
+                padding: const EdgeInsets.all(8),
+                backgroundColor: Colors.transparent,
+                child: Icon(
+                  Icons.flag_rounded,
+                  color: Colors.redAccent.withValues(
+                    alpha: _gameOver ? 0.4 : 1,
+                  ),
+                  size: 20,
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(top: 8, bottom: 8, right: 8),
+              child: InteractiveButton(
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (ctx) => ConfirmDialog(
+                      title: lang.tr('restart_match'),
+                      message: lang.tr('restart_message'),
+                      confirmText: lang.tr('restart'),
+                      cancelText: lang.tr('cancel'),
+                      confirmColor: AppColors.primary,
+                      icon: Icons.refresh_rounded,
+                      onConfirm: () => _startNewGame(),
+                    ),
+                  );
+                },
+                padding: const EdgeInsets.all(8),
+                backgroundColor: Colors.transparent,
+                child: Icon(
+                  Icons.refresh,
+                  color: AppColors.textSecondaryColor(context),
+                  size: 20,
+                ),
+              ),
+            ),
+          ],
+        ),
+        body: SafeArea(
+          child: Column(
+            children: [
+              // Top Player (Opponent)
+              ChessPlayerHeader(
+                name: topPlayerName,
+                rating: topPlayerRating,
+                color: topPlayerColor,
+                timeString: _isUnlimitedTimer
+                    ? '∞ ${TimeFormatter.formatSeconds(topPlayerColor == ChessColor.white ? _whiteTimerSeconds : _blackTimerSeconds)}'
+                    : TimeFormatter.formatSeconds(
+                        topPlayerColor == ChessColor.white
+                            ? _whiteTimerSeconds
+                            : _blackTimerSeconds,
+                      ),
+                isCurrentTurn: _board.turn == topPlayerColor,
+                isAi: widget.mode == GameMode.vsBot,
+                capturedPieces: topPlayerColor == ChessColor.white
+                    ? _board.capturedBlack
+                    : _board.capturedWhite,
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
+                  child: ChessBoardView(
+                    board: _board,
+                    selectedPosition: _selectedPosition,
+                    validMovesForSelected: _validMovesForSelected,
+                    onSquareTap: _onSquareTap,
+                    lastMoveFrom: _lastMoveFrom,
+                    lastMoveTo: _lastMoveTo,
+                    animatedPiece: _animatedPiece,
+                    playerPerspective: widget.playerColor,
+                  ),
+                ),
+              ),
+              // Bottom Player (You / Player Side at front bottom)
+              ChessPlayerHeader(
+                name: bottomPlayerName,
+                rating: bottomPlayerRating,
+                color: bottomPlayerColor,
+                timeString: _isUnlimitedTimer
+                    ? '∞ ${TimeFormatter.formatSeconds(bottomPlayerColor == ChessColor.white ? _whiteTimerSeconds : _blackTimerSeconds)}'
+                    : TimeFormatter.formatSeconds(
+                        bottomPlayerColor == ChessColor.white
+                            ? _whiteTimerSeconds
+                            : _blackTimerSeconds,
+                      ),
+                isCurrentTurn: _board.turn == bottomPlayerColor,
+                isAi: false,
+                capturedPieces: bottomPlayerColor == ChessColor.white
+                    ? _board.capturedBlack
+                    : _board.capturedWhite,
+              ),
+              GameStatusBar(statusText: statusText, statusColor: statusColor),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

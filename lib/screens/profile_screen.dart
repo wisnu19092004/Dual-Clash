@@ -1,0 +1,326 @@
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import 'package:game_papan/services/auth_service.dart';
+import 'package:game_papan/services/language_provider.dart';
+import 'package:game_papan/screens/leaderboard_screen.dart';
+import 'package:game_papan/widgets/language_selection_dialog.dart';
+import 'package:game_papan/widgets/rating_card.dart';
+import 'package:game_papan/widgets/history_item.dart';
+import 'package:game_papan/widgets/profile_header_card.dart';
+import 'package:game_papan/theme/app_colors.dart';
+import 'package:game_papan/theme/theme_provider.dart';
+
+class ProfileScreen extends StatelessWidget {
+  const ProfileScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = Provider.of<AuthService>(context);
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final langProvider = Provider.of<LanguageProvider>(context);
+    final isDark = themeProvider.isDarkMode;
+    final user = auth.currentUser;
+    final currentLang = langProvider.currentLanguage;
+
+    if (user == null) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: AppColors.background(context),
+      appBar: AppBar(
+        backgroundColor: AppColors.surface(context),
+        elevation: 0,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back_ios_new, color: AppColors.textColor(context), size: 20),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          langProvider.tr('profile'),
+          style: GoogleFonts.outfit(color: AppColors.textColor(context), fontWeight: FontWeight.bold, fontSize: 18),
+        ),
+        actions: [
+          IconButton(
+            icon: Icon(
+              isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+              color: isDark ? Colors.amber : AppColors.primary,
+            ),
+            tooltip: 'Ganti Mode Gelap / Cerah',
+            onPressed: () => themeProvider.toggleTheme(),
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            ProfileHeaderCard(user: user, auth: auth),
+            const SizedBox(height: 16),
+
+            // Leaderboard Access Button inside Profile
+            GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const LeaderboardScreen()),
+                );
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF2E1B10), Color(0xFF1F1109)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFD97706).withValues(alpha: 0.5), width: 1.2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFD97706).withValues(alpha: 0.15),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Color(0xFFFBBF24), Color(0xFFD97706)],
+                        ),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.emoji_events_rounded, color: Color(0xFF451A03), size: 22),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            langProvider.tr('leaderboard'),
+                            style: GoogleFonts.cinzel(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                          Text(
+                            langProvider.tr('view_leaderboard'),
+                            style: GoogleFonts.plusJakartaSans(
+                              color: const Color(0xFFD4C5B8),
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.arrow_forward_ios_rounded, color: Color(0xFFFBBF24), size: 16),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // Language Selector Card inside Profile
+            GestureDetector(
+              onTap: () {
+                showDialog(
+                  context: context,
+                  builder: (_) => const LanguageSelectionDialog(),
+                );
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                decoration: BoxDecoration(
+                  color: AppColors.surface(context),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.borderColor(context)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFD97706).withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.language_rounded,
+                            color: Color(0xFFD97706),
+                            size: 22,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              langProvider.tr('language'),
+                              style: GoogleFonts.plusJakartaSans(
+                                color: AppColors.textColor(context),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                            Text(
+                              '${currentLang.flag} ${currentLang.label}',
+                              style: TextStyle(color: AppColors.textSecondaryColor(context), fontSize: 11),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const Icon(Icons.chevron_right_rounded, color: Colors.grey),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 14),
+
+            // Theme Switcher Card inside Profile
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+              decoration: BoxDecoration(
+                color: AppColors.surface(context),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.borderColor(context)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(
+                          isDark ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
+                          color: isDark ? Colors.amber : AppColors.primary,
+                          size: 22,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            langProvider.tr('theme_setting'),
+                            style: GoogleFonts.plusJakartaSans(
+                              color: AppColors.textColor(context),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                          Text(
+                            isDark ? 'Mode Gelap (Dark Mode)' : 'Mode Cerah (Light Mode)',
+                            style: TextStyle(color: AppColors.textSecondaryColor(context), fontSize: 11),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  Switch(
+                    value: isDark,
+                    activeThumbColor: AppColors.primary,
+                    activeTrackColor: AppColors.primary.withValues(alpha: 0.4),
+                    onChanged: (_) => themeProvider.toggleTheme(),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: RatingCard(
+                    title: langProvider.tr('chess_rating'),
+                    rating: user.chessRating,
+                    isChess: true,
+                    color: AppColors.primary,
+                    wins: user.chessWins,
+                    losses: user.chessLosses,
+                    draws: user.chessDraws,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: RatingCard(
+                    title: langProvider.tr('shogi_rating'),
+                    rating: user.shogiRating,
+                    isChess: false,
+                    color: AppColors.secondary,
+                    wins: user.shogiWins,
+                    losses: user.shogiLosses,
+                    draws: user.shogiDraws,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Riwayat Pertandingan',
+                style: GoogleFonts.cinzel(
+                  color: AppColors.textColor(context),
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            if (user.history.isEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
+                decoration: BoxDecoration(
+                  color: AppColors.surface(context),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.borderColor(context)),
+                ),
+                child: Column(
+                  children: [
+                    Icon(Icons.history_toggle_off_rounded, size: 48, color: AppColors.textSecondaryColor(context)),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Belum ada riwayat pertandingan',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: AppColors.textSecondaryColor(context),
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: user.history.length,
+                itemBuilder: (context, index) {
+                  return HistoryItem(record: user.history[index]);
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
