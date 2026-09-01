@@ -32,7 +32,7 @@ class GameEmblemIcon extends StatelessWidget {
                 width: size * 0.9,
                 height: size * 0.9,
                 decoration: BoxDecoration(
-                  shape: BoxShape.circle,
+                  borderRadius: BorderRadius.circular(6),
                   boxShadow: [
                     BoxShadow(
                       color: glowColor!.withValues(alpha: 0.45),

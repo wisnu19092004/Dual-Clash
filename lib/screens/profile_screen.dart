@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:game_papan/services/auth_service.dart';
 import 'package:game_papan/services/language_provider.dart';
-import 'package:game_papan/screens/leaderboard_screen.dart';
+import 'package:game_papan/screens/match_history_screen.dart';
 import 'package:game_papan/widgets/language_selection_dialog.dart';
 import 'package:game_papan/widgets/rating_card.dart';
 import 'package:game_papan/widgets/history_item.dart';
@@ -12,7 +12,9 @@ import 'package:game_papan/theme/app_colors.dart';
 import 'package:game_papan/theme/theme_provider.dart';
 
 class ProfileScreen extends StatelessWidget {
-  const ProfileScreen({super.key});
+  final bool showBackButton;
+
+  const ProfileScreen({super.key, this.showBackButton = true});
 
   @override
   Widget build(BuildContext context) {
@@ -34,13 +36,24 @@ class ProfileScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: AppColors.surface(context),
         elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios_new, color: AppColors.textColor(context), size: 20),
-          onPressed: () => Navigator.pop(context),
-        ),
+        automaticallyImplyLeading: false,
+        leading: showBackButton
+            ? IconButton(
+                icon: Icon(
+                  Icons.arrow_back_ios_new,
+                  color: AppColors.textColor(context),
+                  size: 20,
+                ),
+                onPressed: () => Navigator.pop(context),
+              )
+            : null,
         title: Text(
           langProvider.tr('profile'),
-          style: GoogleFonts.outfit(color: AppColors.textColor(context), fontWeight: FontWeight.bold, fontSize: 18),
+          style: GoogleFonts.outfit(
+            color: AppColors.textColor(context),
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+          ),
         ),
         actions: [
           IconButton(
@@ -55,79 +68,11 @@ class ProfileScreen extends StatelessWidget {
       ),
       body: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         child: Column(
           children: [
             ProfileHeaderCard(user: user, auth: auth),
             const SizedBox(height: 16),
-
-            // Leaderboard Access Button inside Profile
-            GestureDetector(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const LeaderboardScreen()),
-                );
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF2E1B10), Color(0xFF1F1109)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFFD97706).withValues(alpha: 0.5), width: 1.2),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFFD97706).withValues(alpha: 0.15),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [Color(0xFFFBBF24), Color(0xFFD97706)],
-                        ),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.emoji_events_rounded, color: Color(0xFF451A03), size: 22),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            langProvider.tr('leaderboard'),
-                            style: GoogleFonts.cinzel(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                            ),
-                          ),
-                          Text(
-                            langProvider.tr('view_leaderboard'),
-                            style: GoogleFonts.plusJakartaSans(
-                              color: const Color(0xFFD4C5B8),
-                              fontSize: 11,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Icon(Icons.arrow_forward_ios_rounded, color: Color(0xFFFBBF24), size: 16),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
 
             // Language Selector Card inside Profile
             GestureDetector(
@@ -138,7 +83,10 @@ class ProfileScreen extends StatelessWidget {
                 );
               },
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 14,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.surface(context),
                   borderRadius: BorderRadius.circular(16),
@@ -152,7 +100,9 @@ class ProfileScreen extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFD97706).withValues(alpha: 0.15),
+                            color: const Color(
+                              0xFFD97706,
+                            ).withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: const Icon(
@@ -175,7 +125,10 @@ class ProfileScreen extends StatelessWidget {
                             ),
                             Text(
                               '${currentLang.flag} ${currentLang.label}',
-                              style: TextStyle(color: AppColors.textSecondaryColor(context), fontSize: 11),
+                              style: TextStyle(
+                                color: AppColors.textSecondaryColor(context),
+                                fontSize: 11,
+                              ),
                             ),
                           ],
                         ),
@@ -209,7 +162,9 @@ class ProfileScreen extends StatelessWidget {
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Icon(
-                          isDark ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
+                          isDark
+                              ? Icons.dark_mode_rounded
+                              : Icons.light_mode_rounded,
                           color: isDark ? Colors.amber : AppColors.primary,
                           size: 22,
                         ),
@@ -227,8 +182,13 @@ class ProfileScreen extends StatelessWidget {
                             ),
                           ),
                           Text(
-                            isDark ? 'Mode Gelap (Dark Mode)' : 'Mode Cerah (Light Mode)',
-                            style: TextStyle(color: AppColors.textSecondaryColor(context), fontSize: 11),
+                            isDark
+                                ? 'Mode Gelap (Dark Mode)'
+                                : 'Mode Cerah (Light Mode)',
+                            style: TextStyle(
+                              color: AppColors.textSecondaryColor(context),
+                              fontSize: 11,
+                            ),
                           ),
                         ],
                       ),
@@ -273,23 +233,47 @@ class ProfileScreen extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 24),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Riwayat Pertandingan',
-                style: GoogleFonts.cinzel(
-                  color: AppColors.textColor(context),
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  langProvider.tr('match_history_title'),
+                  style: GoogleFonts.cinzel(
+                    color: AppColors.textColor(context),
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
+                if (user.history.isNotEmpty)
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const MatchHistoryScreen(),
+                        ),
+                      );
+                    },
+                    child: Text(
+                      'Lihat Semua',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: const Color(0xFFFBBF24),
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(height: 12),
 
             if (user.history.isEmpty)
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 36,
+                  horizontal: 20,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.surface(context),
                   borderRadius: BorderRadius.circular(16),
@@ -297,10 +281,14 @@ class ProfileScreen extends StatelessWidget {
                 ),
                 child: Column(
                   children: [
-                    Icon(Icons.history_toggle_off_rounded, size: 48, color: AppColors.textSecondaryColor(context)),
+                    Icon(
+                      Icons.history_toggle_off_rounded,
+                      size: 48,
+                      color: AppColors.textSecondaryColor(context),
+                    ),
                     const SizedBox(height: 12),
                     Text(
-                      'Belum ada riwayat pertandingan',
+                      langProvider.tr('no_match_history'),
                       style: GoogleFonts.plusJakartaSans(
                         color: AppColors.textSecondaryColor(context),
                         fontSize: 13,
@@ -313,7 +301,7 @@ class ProfileScreen extends StatelessWidget {
               ListView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                itemCount: user.history.length,
+                itemCount: user.history.length > 5 ? 5 : user.history.length,
                 itemBuilder: (context, index) {
                   return HistoryItem(record: user.history[index]);
                 },

@@ -7,8 +7,13 @@ import 'package:game_papan/widgets/game_emblem_icon.dart';
 
 class GameGuideScreen extends StatefulWidget {
   final int initialTabIndex;
+  final bool showBackButton;
 
-  const GameGuideScreen({super.key, this.initialTabIndex = 0});
+  const GameGuideScreen({
+    super.key,
+    this.initialTabIndex = 0,
+    this.showBackButton = true,
+  });
 
   @override
   State<GameGuideScreen> createState() => _GameGuideScreenState();
@@ -42,14 +47,17 @@ class _GameGuideScreenState extends State<GameGuideScreen>
       backgroundColor: AppColors.background(context),
       appBar: AppBar(
         backgroundColor: AppColors.surface(context),
-        leading: IconButton(
-          icon: Icon(
-            Icons.arrow_back_ios_new,
-            color: AppColors.textColor(context),
-            size: 20,
-          ),
-          onPressed: () => Navigator.pop(context),
-        ),
+        automaticallyImplyLeading: false,
+        leading: widget.showBackButton
+            ? IconButton(
+                icon: Icon(
+                  Icons.arrow_back_ios_new,
+                  color: AppColors.textColor(context),
+                  size: 20,
+                ),
+                onPressed: () => Navigator.pop(context),
+              )
+            : null,
         title: Row(
           children: [
             const Icon(

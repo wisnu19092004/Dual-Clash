@@ -10,8 +10,13 @@ import 'package:game_papan/theme/app_colors.dart';
 
 class LeaderboardScreen extends StatefulWidget {
   final GameType initialGameType;
+  final bool showBackButton;
 
-  const LeaderboardScreen({super.key, this.initialGameType = GameType.chess});
+  const LeaderboardScreen({
+    super.key,
+    this.initialGameType = GameType.chess,
+    this.showBackButton = true,
+  });
 
   @override
   State<LeaderboardScreen> createState() => _LeaderboardScreenState();
@@ -48,14 +53,17 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
       appBar: AppBar(
         backgroundColor: AppColors.surface(context),
         elevation: 0,
-        leading: IconButton(
-          icon: Icon(
-            Icons.arrow_back_ios_new,
-            color: AppColors.textColor(context),
-            size: 20,
-          ),
-          onPressed: () => Navigator.pop(context),
-        ),
+        automaticallyImplyLeading: false,
+        leading: widget.showBackButton
+            ? IconButton(
+                icon: Icon(
+                  Icons.arrow_back_ios_new,
+                  color: AppColors.textColor(context),
+                  size: 20,
+                ),
+                onPressed: () => Navigator.pop(context),
+              )
+            : null,
         title: Row(
           children: [
             const Icon(

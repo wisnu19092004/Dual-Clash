@@ -192,4 +192,24 @@ class ShogiBoard {
 
     return true;
   }
+
+  /// Rebuilds the board state from the beginning up to [targetMoveCount] moves.
+  /// Used for Undo / Takeback feature.
+  void rebuildFromHistory(int targetMoveCount) {
+    if (targetMoveCount < 0 || targetMoveCount > moveHistory.length) return;
+    final movesToReplay = moveHistory.sublist(0, targetMoveCount);
+
+    final fresh = ShogiBoard();
+    board.setRange(0, 9, fresh.board);
+    turn = ShogiPlayer.sente;
+    senteHand.clear();
+    goteHand.clear();
+    moveHistory.clear();
+    isCheck = false;
+    isCheckmate = false;
+
+    for (final move in movesToReplay) {
+      makeMove(move);
+    }
+  }
 }

@@ -40,6 +40,8 @@ class ShogiMove {
 
   bool get isDrop => from == null && dropPieceType != null;
 
+  String get notation => toString();
+
   @override
   String toString() {
     if (isDrop) {

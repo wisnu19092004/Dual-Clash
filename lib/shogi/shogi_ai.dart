@@ -51,15 +51,15 @@ class ShogiAiEngine {
     }
 
     if (difficulty == BotDifficulty.advanced) {
-      return _getAlphaBetaMove(board, depth: 2, addNoise: false, smartOrder: true, maxBranching: 25);
+      return _getAlphaBetaMove(board, depth: 3, addNoise: false, smartOrder: true, maxBranching: 25);
     }
 
     if (difficulty == BotDifficulty.expert) {
-      return _getAlphaBetaMove(board, depth: 3, addNoise: false, smartOrder: true, maxBranching: 20);
+      return _getAlphaBetaMove(board, depth: 3, addNoise: false, smartOrder: true, maxBranching: 28);
     }
 
-    // Grandmaster Bot
-    return _getAlphaBetaMove(board, depth: 3, addNoise: false, smartOrder: true, maxBranching: 22);
+    // Grandmaster Bot (Rating 2400)
+    return _getAlphaBetaMove(board, depth: 4, addNoise: false, smartOrder: true, maxBranching: 22);
   }
 
   static ShogiMove _getAlphaBetaMove(

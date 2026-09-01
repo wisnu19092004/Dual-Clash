@@ -231,4 +231,26 @@ class ChessBoard {
 
     return true;
   }
+
+  /// Rebuilds the board state from the beginning up to [moveCount] moves.
+  /// Used for Undo / Takeback feature.
+  void rebuildFromHistory(int targetMoveCount) {
+    if (targetMoveCount < 0 || targetMoveCount > moveHistory.length) return;
+    final movesToReplay = moveHistory.sublist(0, targetMoveCount);
+
+    final fresh = ChessBoard();
+    board.setRange(0, 8, fresh.board);
+    turn = ChessColor.white;
+    enPassantTarget = null;
+    capturedWhite.clear();
+    capturedBlack.clear();
+    moveHistory.clear();
+    isCheck = false;
+    isCheckmate = false;
+    isStalemate = false;
+
+    for (final move in movesToReplay) {
+      makeMove(move);
+    }
+  }
 }
