@@ -19,6 +19,8 @@ import 'package:game_papan/utils/time_formatter.dart';
 import 'package:game_papan/widgets/game_emblem_icon.dart';
 import 'package:game_papan/widgets/shogi_board_view.dart';
 import 'package:game_papan/widgets/shogi_player_header.dart';
+import 'package:game_papan/services/game_analysis_engine.dart';
+import 'package:game_papan/widgets/game_analysis_dialog.dart';
 import 'package:game_papan/widgets/shogi_promotion_choice_dialog.dart';
 import 'package:game_papan/widgets/game_status_bar.dart';
 import 'package:game_papan/widgets/match_end_dialog.dart';
@@ -28,6 +30,7 @@ import 'package:game_papan/widgets/interactive_button.dart';
 class ShogiGameScreen extends StatefulWidget {
   final GameMode mode;
   final BotDifficulty botDifficulty;
+  final CoachLevel? coachLevel;
   final ShogiPlayer playerSide;
   final int durationMinutes; // 0 = unlimited
 
@@ -35,6 +38,7 @@ class ShogiGameScreen extends StatefulWidget {
     super.key,
     required this.mode,
     this.botDifficulty = BotDifficulty.intermediate,
+    this.coachLevel,
     this.playerSide = ShogiPlayer.sente,
     this.durationMinutes = 10,
   });
@@ -56,7 +60,9 @@ class _ShogiGameScreenState extends State<ShogiGameScreen> {
   ShogiPosition? _lastMoveFrom;
   ShogiPosition? _lastMoveTo;
   ShogiPiece? _animatedPiece;
+  MoveAnalysis? _lastCoachAnalysis;
 
+  bool get _isCoachMode => widget.mode == GameMode.coach;
   bool get _isUnlimitedTimer => widget.durationMinutes == 0;
 
   @override
@@ -80,11 +86,12 @@ class _ShogiGameScreenState extends State<ShogiGameScreen> {
       _lastMoveFrom = null;
       _lastMoveTo = null;
       _animatedPiece = null;
+      _lastCoachAnalysis = null;
     });
 
     _startTimer();
 
-    if (widget.mode == GameMode.vsBot &&
+    if ((widget.mode == GameMode.vsBot || widget.mode == GameMode.coach) &&
         widget.playerSide == ShogiPlayer.gote) {
       _triggerAiMove();
     }
@@ -144,7 +151,8 @@ class _ShogiGameScreenState extends State<ShogiGameScreen> {
   void _onSquareTap(int row, int col) {
     if (_gameOver || _isAiThinking) return;
 
-    if (widget.mode == GameMode.vsBot && _board.turn != widget.playerSide) {
+    if ((widget.mode == GameMode.vsBot || widget.mode == GameMode.coach) &&
+        _board.turn != widget.playerSide) {
       return;
     }
 
@@ -194,7 +202,8 @@ class _ShogiGameScreenState extends State<ShogiGameScreen> {
 
   void _onHandPieceTap(ShogiPieceType pieceType) {
     if (_gameOver || _isAiThinking) return;
-    if (widget.mode == GameMode.vsBot && _board.turn != widget.playerSide) {
+    if ((widget.mode == GameMode.vsBot || widget.mode == GameMode.coach) &&
+        _board.turn != widget.playerSide) {
       return;
     }
 
@@ -235,10 +244,21 @@ class _ShogiGameScreenState extends State<ShogiGameScreen> {
       SoundEffects.playMovePiece();
     }
 
+    MoveAnalysis? coachAnalysis;
+    if (_isCoachMode) {
+      coachAnalysis = GameAnalysisEngine.analyzeShogiMove(
+        boardBeforeMove: _board,
+        move: move,
+        playerSide: _board.turn,
+        moveIndex: _board.moveHistory.length,
+      );
+    }
+
     setState(() {
       _lastMoveFrom = move.from;
       _lastMoveTo = move.to;
       _animatedPiece = movingPiece;
+      _lastCoachAnalysis = coachAnalysis;
       _board.makeMove(move);
       _selectedPosition = null;
       _selectedHandPiece = null;
@@ -248,7 +268,7 @@ class _ShogiGameScreenState extends State<ShogiGameScreen> {
     _checkGameOverState();
 
     if (!_gameOver &&
-        widget.mode == GameMode.vsBot &&
+        (widget.mode == GameMode.vsBot || widget.mode == GameMode.coach) &&
         _board.turn != widget.playerSide) {
       _triggerAiMove();
     }
@@ -344,12 +364,14 @@ class _ShogiGameScreenState extends State<ShogiGameScreen> {
   }) async {
     final authService = Provider.of<AuthService>(context, listen: false);
 
-    int opponentRating = widget.mode == GameMode.vsBot
+    int opponentRating = (widget.mode == GameMode.vsBot || widget.mode == GameMode.coach)
         ? widget.botDifficulty.rating
         : 1200;
-    String opponentName = widget.mode == GameMode.vsBot
-        ? widget.botDifficulty.title
-        : 'Player 2';
+    String opponentName = widget.mode == GameMode.coach
+        ? 'Coach (${widget.coachLevel?.name ?? "Master"})'
+        : (widget.mode == GameMode.vsBot
+            ? widget.botDifficulty.title
+            : 'Player 2');
 
     final ratingDelta = await authService.recordMatchResult(
       gameType: GameType.shogi,
@@ -376,6 +398,10 @@ class _ShogiGameScreenState extends State<ShogiGameScreen> {
             gameMode: widget.mode,
             title: title,
             message: message,
+            onAnalyzeGame: () {
+              Navigator.pop(ctx);
+              _showPostGameAnalysisReport();
+            },
             onPlayAgain: () {
               Navigator.pop(ctx);
               _startNewGame();
@@ -390,6 +416,64 @@ class _ShogiGameScreenState extends State<ShogiGameScreen> {
         );
       },
     );
+  }
+
+  void _showPostGameAnalysisReport() {
+    final report = GameAnalysisEngine.analyzeFullShogiGame(
+      moveHistory: _board.moveHistory,
+      playerSide: widget.playerSide,
+    );
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (_) => GameAnalysisDialog(
+        report: report,
+        gameType: GameType.shogi,
+        player1Name: widget.playerSide == ShogiPlayer.sente ? 'Sente (Anda)' : 'Sente (Lawan)',
+        player2Name: widget.playerSide == ShogiPlayer.gote ? 'Gote (Anda)' : 'Gote (Lawan)',
+        onPlayAgain: () => _startNewGame(),
+        onMainMenu: () {
+          if (mounted) Navigator.of(context).pop();
+        },
+      ),
+    );
+  }
+
+  void _undoMove() {
+    if (_gameOver || _isAiThinking) return;
+    if (_board.moveHistory.isEmpty) return;
+
+    final historyLen = _board.moveHistory.length;
+    int movesToUndo = 2;
+    if (widget.playerSide == ShogiPlayer.sente) {
+      if (historyLen == 1) {
+        movesToUndo = 1;
+      } else if (_board.turn != widget.playerSide) {
+        movesToUndo = 1;
+      }
+    } else {
+      // Player is Gote
+      if (historyLen <= 2) {
+        movesToUndo = 1;
+      } else if (_board.turn != widget.playerSide) {
+        movesToUndo = 1;
+      }
+    }
+
+    final targetMoveCount = (historyLen - movesToUndo).clamp(0, historyLen);
+    SoundEffects.playMovePiece();
+
+    setState(() {
+      _board.rebuildFromHistory(targetMoveCount);
+      _selectedPosition = null;
+      _selectedHandPiece = null;
+      _validMoves = [];
+      _lastMoveFrom = _board.moveHistory.isNotEmpty ? _board.moveHistory.last.from : null;
+      _lastMoveTo = _board.moveHistory.isNotEmpty ? _board.moveHistory.last.to : null;
+      _animatedPiece = null;
+      _lastCoachAnalysis = null;
+    });
   }
 
   @override
@@ -409,15 +493,17 @@ class _ShogiGameScreenState extends State<ShogiGameScreen> {
         ? ShogiPlayer.gote
         : ShogiPlayer.sente;
 
-    final topPlayerName = widget.mode == GameMode.vsBot
-        ? widget.botDifficulty.title
-        : (isGotePerspective ? 'Pemain 1 (Sente 先手)' : 'Pemain 2 (Gote 後手)');
+    final topPlayerName = widget.mode == GameMode.coach
+        ? 'Pelatih (${lang.tr("coach_${widget.coachLevel?.name ?? 'medium'}")})'
+        : (widget.mode == GameMode.vsBot
+            ? widget.botDifficulty.title
+            : (isGotePerspective ? 'Pemain 1 (Sente 先手)' : 'Pemain 2 (Gote 後手)'));
 
-    final topPlayerRating = widget.mode == GameMode.vsBot
+    final topPlayerRating = (widget.mode == GameMode.vsBot || widget.mode == GameMode.coach)
         ? widget.botDifficulty.rating
         : 1200;
 
-    final bottomPlayerName = widget.mode == GameMode.vsBot
+    final bottomPlayerName = (widget.mode == GameMode.vsBot || widget.mode == GameMode.coach)
         ? (user?.displayName ?? 'Player (Anda)')
         : (isGotePerspective
               ? (user?.displayName ?? 'Pemain 2 (Gote)')
@@ -449,6 +535,15 @@ class _ShogiGameScreenState extends State<ShogiGameScreen> {
           : const Color(0xFFEA580C);
     }
 
+    String titleMode;
+    if (widget.mode == GameMode.coach) {
+      titleMode = 'Shogi vs ${lang.tr("coach_${widget.coachLevel?.name ?? 'medium'}")}';
+    } else if (widget.mode == GameMode.vsBot) {
+      titleMode = 'Shogi vs ${widget.botDifficulty.title}';
+    } else {
+      titleMode = 'Shogi Pass & Play';
+    }
+
     return PopScope(
       canPop: false,
       child: Scaffold(
@@ -463,7 +558,7 @@ class _ShogiGameScreenState extends State<ShogiGameScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Shogi ${widget.mode == GameMode.vsBot ? "vs ${widget.botDifficulty.title}" : "Pass & Play"}',
+                  titleMode,
                   style: GoogleFonts.cinzel(
                     color: AppColors.textColor(context),
                     fontSize: 16,
@@ -561,13 +656,74 @@ class _ShogiGameScreenState extends State<ShogiGameScreen> {
                             : _goteTimerSeconds,
                       ),
                 isCurrentTurn: _board.turn == topPlayerSide,
-                isAi: widget.mode == GameMode.vsBot,
+                isAi: widget.mode == GameMode.vsBot || widget.mode == GameMode.coach,
                 handPieces: topPlayerSide == ShogiPlayer.sente
                     ? _board.senteHand
                     : _board.goteHand,
                 selectedHandPiece: _selectedHandPiece,
                 onHandPieceTap: _onHandPieceTap,
               ),
+              if (_isCoachMode && _lastCoachAnalysis != null) ...[
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E293B),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: const Color(0xFFEA580C).withValues(alpha: 0.6),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.2),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEA580C).withValues(alpha: 0.25),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.psychology_rounded,
+                          color: Color(0xFFFB923C),
+                          size: 18,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              lang.tr('coach_feedback_bubble'),
+                              style: GoogleFonts.cinzel(
+                                color: const Color(0xFFFB923C),
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 1),
+                            Text(
+                              lang.tr(_lastCoachAnalysis!.coachFeedbackKey),
+                              style: GoogleFonts.plusJakartaSans(
+                                color: Colors.white,
+                                fontSize: 11.5,
+                                height: 1.25,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
@@ -605,6 +761,11 @@ class _ShogiGameScreenState extends State<ShogiGameScreen> {
                     : _board.goteHand,
                 selectedHandPiece: _selectedHandPiece,
                 onHandPieceTap: _onHandPieceTap,
+                onUndoMove: (widget.mode == GameMode.vsBot || widget.mode == GameMode.coach) &&
+                        _board.moveHistory.isNotEmpty &&
+                        !_gameOver
+                    ? _undoMove
+                    : null,
               ),
               GameStatusBar(statusText: statusText, statusColor: statusColor),
             ],

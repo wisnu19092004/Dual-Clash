@@ -88,8 +88,7 @@ class GameCard extends StatelessWidget {
                 padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
                   color: Colors.black.withValues(alpha: 0.35),
-                  shape: isChess ? BoxShape.circle : BoxShape.rectangle,
-                  borderRadius: isChess ? null : BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(8),
                   border: Border.all(
                     color: const Color(0xFFFBBF24).withValues(alpha: 0.4),
                     width: 1.2,

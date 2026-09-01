@@ -15,6 +15,7 @@ class MatchEndDialog extends StatelessWidget {
   final String message;
   final VoidCallback onPlayAgain;
   final VoidCallback onMainMenu;
+  final VoidCallback? onAnalyzeGame;
 
   const MatchEndDialog({
     super.key,
@@ -26,6 +27,7 @@ class MatchEndDialog extends StatelessWidget {
     required this.message,
     required this.onPlayAgain,
     required this.onMainMenu,
+    this.onAnalyzeGame,
   });
 
   @override
@@ -148,7 +150,38 @@ class MatchEndDialog extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
+            if (onAnalyzeGame != null) ...[
+              SizedBox(
+                width: double.infinity,
+                child: InteractiveButton(
+                  onPressed: onAnalyzeGame,
+                  backgroundColor: const Color(0xFFD97706),
+                  borderRadius: BorderRadius.circular(14),
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.insights_rounded,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        lang.tr('review_game_analysis'),
+                        style: GoogleFonts.plusJakartaSans(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
             Row(
               children: [
                 Expanded(

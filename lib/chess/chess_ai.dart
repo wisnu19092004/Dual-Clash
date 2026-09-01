@@ -55,16 +55,16 @@ class ChessAiEngine {
 
     // Advanced Bot (Rating 1600) - Depth 3 search with smart pruning
     if (difficulty == BotDifficulty.advanced) {
-      return _getAlphaBetaMove(board, depth: 3, addNoise: false, smartOrder: true, maxBranching: 25);
+      return _getAlphaBetaMove(board, depth: 3, addNoise: false, smartOrder: true, maxBranching: 30);
     }
 
-    // Expert Bot (Rating 2000) - Depth 3 + Move Ordering
+    // Expert Bot (Rating 2000) - Depth 4 + Move Ordering
     if (difficulty == BotDifficulty.expert) {
-      return _getAlphaBetaMove(board, depth: 3, addNoise: false, smartOrder: true, maxBranching: 28);
+      return _getAlphaBetaMove(board, depth: 4, addNoise: false, smartOrder: true, maxBranching: 25);
     }
 
-    // Grandmaster Bot (Rating 2400) - Depth 4 search with tight pruning
-    return _getAlphaBetaMove(board, depth: 4, addNoise: false, smartOrder: true, maxBranching: 22);
+    // Grandmaster Bot (Rating 2400) - Depth 5 search with highly disciplined move ordering
+    return _getAlphaBetaMove(board, depth: 5, addNoise: false, smartOrder: true, maxBranching: 22);
   }
 
   static ChessMove _getAlphaBetaMove(

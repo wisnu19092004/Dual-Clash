@@ -14,6 +14,7 @@ import 'package:game_papan/widgets/game_emblem_icon.dart';
 import 'package:game_papan/widgets/interactive_button.dart';
 import 'package:game_papan/widgets/game_mode_selector.dart';
 import 'package:game_papan/widgets/bot_difficulty_selector.dart';
+import 'package:game_papan/widgets/coach_difficulty_selector.dart';
 import 'package:game_papan/widgets/match_duration_selector.dart';
 import 'package:game_papan/theme/app_colors.dart';
 
@@ -29,9 +30,28 @@ class GameSetupDialog extends StatefulWidget {
 class _GameSetupDialogState extends State<GameSetupDialog> {
   GameMode _selectedMode = GameMode.vsBot;
   BotDifficulty _selectedDifficulty = BotDifficulty.intermediate;
+  CoachLevel _selectedCoachLevel = CoachLevel.medium;
   int _matchDurationMinutes = 10;
   ChessColor _selectedChessColor = ChessColor.white;
   ShogiPlayer _selectedShogiPlayer = ShogiPlayer.sente;
+
+  BotDifficulty get _effectiveBotDifficulty {
+    if (_selectedMode == GameMode.coach) {
+      switch (_selectedCoachLevel) {
+        case CoachLevel.beginner:
+          return BotDifficulty.beginner;
+        case CoachLevel.easy:
+          return BotDifficulty.novice;
+        case CoachLevel.medium:
+          return BotDifficulty.intermediate;
+        case CoachLevel.hard:
+          return BotDifficulty.advanced;
+        case CoachLevel.master:
+          return BotDifficulty.grandmaster;
+      }
+    }
+    return _selectedDifficulty;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -114,7 +134,7 @@ class _GameSetupDialogState extends State<GameSetupDialog> {
               ),
               const SizedBox(height: 18),
 
-              // Game Mode Selector (vs Bot or Pass & Play)
+              // Game Mode Selector (vs Bot, Coach, or Pass & Play)
               GameModeSelector(
                 selectedMode: _selectedMode,
                 activeColor: primaryColor,
@@ -122,8 +142,8 @@ class _GameSetupDialogState extends State<GameSetupDialog> {
               ),
               const SizedBox(height: 16),
 
-              // Local PvP assigns sides at random so neither player must choose.
-              if (_selectedMode == GameMode.vsBot) ...[
+              // Side Selection
+              if (_selectedMode == GameMode.vsBot || _selectedMode == GameMode.coach) ...[
                 _buildSideSelector(isChess, primaryColor, langProvider),
                 const SizedBox(height: 16),
               ] else ...[
@@ -150,6 +170,17 @@ class _GameSetupDialogState extends State<GameSetupDialog> {
                 ),
               ],
 
+              // Coach Level Selector if Coach mode
+              if (_selectedMode == GameMode.coach) ...[
+                const SizedBox(height: 16),
+                CoachDifficultySelector(
+                  selectedLevel: _selectedCoachLevel,
+                  activeColor: primaryColor,
+                  onSelected: (lvl) =>
+                      setState(() => _selectedCoachLevel = lvl),
+                ),
+              ],
+
               const SizedBox(height: 22),
 
               // Start Button
@@ -165,7 +196,8 @@ class _GameSetupDialogState extends State<GameSetupDialog> {
                         MaterialPageRoute(
                           builder: (_) => ChessGameScreen(
                             mode: _selectedMode,
-                            botDifficulty: _selectedDifficulty,
+                            botDifficulty: _effectiveBotDifficulty,
+                            coachLevel: _selectedMode == GameMode.coach ? _selectedCoachLevel : null,
                             durationMinutes: _matchDurationMinutes,
                             playerColor: _selectedMode == GameMode.vsPlayer
                                 ? (isFirstPlayer
@@ -181,7 +213,8 @@ class _GameSetupDialogState extends State<GameSetupDialog> {
                         MaterialPageRoute(
                           builder: (_) => ShogiGameScreen(
                             mode: _selectedMode,
-                            botDifficulty: _selectedDifficulty,
+                            botDifficulty: _effectiveBotDifficulty,
+                            coachLevel: _selectedMode == GameMode.coach ? _selectedCoachLevel : null,
                             durationMinutes: _matchDurationMinutes,
                             playerSide: _selectedMode == GameMode.vsPlayer
                                 ? (isFirstPlayer
@@ -283,9 +316,7 @@ class _GameSetupDialogState extends State<GameSetupDialog> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          isChess
-              ? langProvider.tr('choose_side_chess')
-              : langProvider.tr('choose_side_shogi'),
+          langProvider.tr(isChess ? 'choose_side_chess' : 'choose_side_shogi'),
           style: GoogleFonts.cinzel(
             color: AppColors.textSecondaryColor(context),
             fontSize: 11,
@@ -294,82 +325,84 @@ class _GameSetupDialogState extends State<GameSetupDialog> {
           ),
         ),
         const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: _buildSideCard(
-                title: isChess ? 'Putih / White' : 'Sente (先手)',
-                subtitle: isChess ? '1st Move' : '1st Player',
-                isSelected: isChess
-                    ? _selectedChessColor == ChessColor.white
-                    : _selectedShogiPlayer == ShogiPlayer.sente,
-                activeColor: activeColor,
-                icon: isChess ? Icons.circle : Icons.navigation,
-                iconColor: const Color(0xFFFDE68A),
-                onTap: () {
-                  setState(() {
-                    if (isChess) {
-                      _selectedChessColor = ChessColor.white;
-                    } else {
-                      _selectedShogiPlayer = ShogiPlayer.sente;
-                    }
-                  });
-                },
+        if (isChess)
+          Row(
+            children: [
+              Expanded(
+                child: _buildSideOption(
+                  title: langProvider.tr('side_white_title'),
+                  subtitle: langProvider.tr('side_white_sub'),
+                  isSelected: _selectedChessColor == ChessColor.white,
+                  activeColor: activeColor,
+                  onTap: () => setState(() => _selectedChessColor = ChessColor.white),
+                  emblem: const GameEmblemIcon(isChess: true, size: 24),
+                ),
               ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _buildSideCard(
-                title: isChess ? 'Hitam / Black' : 'Gote (後手)',
-                subtitle: isChess ? '2nd Move' : '2nd Player',
-                isSelected: isChess
-                    ? _selectedChessColor == ChessColor.black
-                    : _selectedShogiPlayer == ShogiPlayer.gote,
-                activeColor: activeColor,
-                icon: isChess
-                    ? Icons.circle_outlined
-                    : Icons.navigation_outlined,
-                iconColor: const Color(0xFF9E8474),
-                onTap: () {
-                  setState(() {
-                    if (isChess) {
-                      _selectedChessColor = ChessColor.black;
-                    } else {
-                      _selectedShogiPlayer = ShogiPlayer.gote;
-                    }
-                  });
-                },
+              const SizedBox(width: 10),
+              Expanded(
+                child: _buildSideOption(
+                  title: langProvider.tr('side_black_title'),
+                  subtitle: langProvider.tr('side_black_sub'),
+                  isSelected: _selectedChessColor == ChessColor.black,
+                  activeColor: activeColor,
+                  onTap: () => setState(() => _selectedChessColor = ChessColor.black),
+                  emblem: const GameEmblemIcon(isChess: true, size: 24),
+                ),
               ),
-            ),
-          ],
-        ),
+            ],
+          )
+        else
+          Row(
+            children: [
+              Expanded(
+                child: _buildSideOption(
+                  title: langProvider.tr('side_sente_title'),
+                  subtitle: langProvider.tr('side_sente_sub'),
+                  isSelected: _selectedShogiPlayer == ShogiPlayer.sente,
+                  activeColor: activeColor,
+                  onTap: () => setState(() => _selectedShogiPlayer = ShogiPlayer.sente),
+                  emblem: const GameEmblemIcon(isChess: false, size: 24),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _buildSideOption(
+                  title: langProvider.tr('side_gote_title'),
+                  subtitle: langProvider.tr('side_gote_sub'),
+                  isSelected: _selectedShogiPlayer == ShogiPlayer.gote,
+                  activeColor: activeColor,
+                  onTap: () => setState(() => _selectedShogiPlayer = ShogiPlayer.gote),
+                  emblem: const GameEmblemIcon(isChess: false, size: 24),
+                ),
+              ),
+            ],
+          ),
       ],
     );
   }
 
-  Widget _buildSideCard({
+  Widget _buildSideOption({
     required String title,
     required String subtitle,
     required bool isSelected,
     required Color activeColor,
-    required IconData icon,
-    required Color iconColor,
     required VoidCallback onTap,
+    required Widget emblem,
   }) {
     return InteractiveButton(
       onPressed: onTap,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       backgroundColor: isSelected
-          ? activeColor.withValues(alpha: 0.22)
+          ? activeColor.withValues(alpha: 0.2)
           : AppColors.surfaceDark(context),
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(14),
       border: Border.all(
         color: isSelected ? activeColor : AppColors.borderColor(context),
-        width: isSelected ? 1.8 : 1.0,
+        width: isSelected ? 2 : 1,
       ),
       child: Row(
         children: [
-          Icon(icon, color: isSelected ? activeColor : iconColor, size: 20),
+          emblem,
           const SizedBox(width: 8),
           Expanded(
             child: Column(
@@ -380,15 +413,15 @@ class _GameSetupDialogState extends State<GameSetupDialog> {
                   style: GoogleFonts.cinzel(
                     color: AppColors.textColor(context),
                     fontWeight: FontWeight.bold,
-                    fontSize: 11.5,
+                    fontSize: 12,
                   ),
                 ),
                 Text(
                   subtitle,
-                  style: GoogleFonts.plusJakartaSans(
+                  style: TextStyle(
                     color: isSelected
-                        ? AppColors.textSecondaryColor(context)
-                        : AppColors.textMutedColor(context),
+                        ? activeColor
+                        : AppColors.textSecondaryColor(context),
                     fontSize: 9.5,
                   ),
                 ),

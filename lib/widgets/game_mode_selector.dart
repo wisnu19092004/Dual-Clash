@@ -47,7 +47,18 @@ class GameModeSelector extends StatelessWidget {
                 isSelected: selectedMode == GameMode.vsBot,
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _buildOption(
+                context: context,
+                mode: GameMode.coach,
+                title: langProvider.tr('vs_coach'),
+                subtitle: langProvider.tr('vs_coach_sub'),
+                icon: Icons.school_outlined,
+                isSelected: selectedMode == GameMode.coach,
+              ),
+            ),
+            const SizedBox(width: 8),
             Expanded(
               child: _buildOption(
                 context: context,
@@ -74,7 +85,7 @@ class GameModeSelector extends StatelessWidget {
   }) {
     return InteractiveButton(
       onPressed: () => onSelected(mode),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
       backgroundColor: isSelected ? activeColor.withValues(alpha: 0.2) : AppColors.surfaceDark(context),
       borderRadius: BorderRadius.circular(14),
       border: Border.all(
@@ -83,25 +94,28 @@ class GameModeSelector extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Icon(icon, color: isSelected ? activeColor : AppColors.textSecondaryColor(context), size: 26),
-          const SizedBox(height: 6),
+          Icon(icon, color: isSelected ? activeColor : AppColors.textSecondaryColor(context), size: 22),
+          const SizedBox(height: 4),
           Text(
             title,
             style: GoogleFonts.cinzel(
               color: AppColors.textColor(context),
               fontWeight: FontWeight.bold,
-              fontSize: 12,
+              fontSize: 10.5,
             ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 2),
           Text(
             subtitle,
             textAlign: TextAlign.center,
-            style: GoogleFonts.plusJakartaSans(
-              color: isSelected ? AppColors.textSecondaryColor(context) : AppColors.textMutedColor(context),
-              fontSize: 10,
-              fontWeight: FontWeight.normal,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: isSelected ? activeColor : AppColors.textSecondaryColor(context),
+              fontSize: 9,
             ),
           ),
         ],

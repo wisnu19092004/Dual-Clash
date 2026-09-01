@@ -27,12 +27,12 @@ class ShogiEvaluator {
       }
     }
 
-    // In-hand pieces (Hand pieces have strong tactical flexibility, worth 1.1x)
+    // In-hand pieces (Hand pieces have strong tactical flexibility, worth 1.25x)
     for (final pType in board.senteHand) {
-      totalScore += (getBaseValueOfPiece(pType) * 1.1).round();
+      totalScore += (getBaseValueOfPiece(pType) * 1.25).round();
     }
     for (final pType in board.goteHand) {
-      totalScore -= (getBaseValueOfPiece(pType) * 1.1).round();
+      totalScore -= (getBaseValueOfPiece(pType) * 1.25).round();
     }
 
     return totalScore;

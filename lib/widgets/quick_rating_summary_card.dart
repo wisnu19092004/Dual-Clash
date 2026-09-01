@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:game_papan/models/user_profile.dart';
 import 'package:game_papan/models/game_enums.dart';
-import 'package:game_papan/screens/leaderboard_screen.dart';
+import 'package:game_papan/screens/match_history_screen.dart';
 import 'package:game_papan/widgets/game_emblem_icon.dart';
 import 'package:game_papan/theme/app_colors.dart';
 import 'package:provider/provider.dart';
@@ -38,7 +38,7 @@ class QuickRatingSummaryCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              // Chess Rating Clickable Item
+              // Chess Rating Item (Click to view Chess match history)
               Expanded(
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
@@ -46,8 +46,8 @@ class QuickRatingSummaryCard extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => const LeaderboardScreen(
-                          initialGameType: GameType.chess,
+                        builder: (_) => const MatchHistoryScreen(
+                          filterGameType: GameType.chess,
                         ),
                       ),
                     );
@@ -64,7 +64,7 @@ class QuickRatingSummaryCard extends StatelessWidget {
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
-                          shape: BoxShape.circle,
+                          borderRadius: BorderRadius.circular(8),
                           border: Border.all(
                             color: const Color(0xFFD97706),
                             width: 1.4,
@@ -118,7 +118,7 @@ class QuickRatingSummaryCard extends StatelessWidget {
               ),
               const SizedBox(width: 10),
 
-              // Shogi Rating Clickable Item
+              // Shogi Rating Item (Click to view Shogi match history)
               Expanded(
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
@@ -126,8 +126,8 @@ class QuickRatingSummaryCard extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => const LeaderboardScreen(
-                          initialGameType: GameType.shogi,
+                        builder: (_) => const MatchHistoryScreen(
+                          filterGameType: GameType.shogi,
                         ),
                       ),
                     );
@@ -194,12 +194,12 @@ class QuickRatingSummaryCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           GestureDetector(
+            behavior: HitTestBehavior.opaque,
             onTap: () {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) =>
-                      const LeaderboardScreen(initialGameType: GameType.chess),
+                  builder: (_) => const MatchHistoryScreen(),
                 ),
               );
             },
@@ -207,13 +207,13 @@ class QuickRatingSummaryCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const Icon(
-                  Icons.emoji_events_rounded,
-                  size: 14,
+                  Icons.history_rounded,
+                  size: 15,
                   color: Color(0xFFFBBF24),
                 ),
-                const SizedBox(width: 4),
+                const SizedBox(width: 5),
                 Text(
-                  lang.tr('view_leaderboard'),
+                  lang.tr('view_match_history'),
                   style: GoogleFonts.plusJakartaSans(
                     color: const Color(0xFFFBBF24),
                     fontSize: 11,

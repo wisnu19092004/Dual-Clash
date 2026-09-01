@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:game_papan/shogi/shogi_piece.dart';
 import 'package:game_papan/theme/app_colors.dart';
 import 'package:game_papan/widgets/shogi_piece_widget.dart';
+import 'package:game_papan/widgets/interactive_button.dart';
 
 /// Authentic Shogi Online Style Player Header with Fixed Komadai (駒台)
 /// Preserves fixed height at all times so that UI never jumps or shifts during piece captures/drops.
@@ -16,6 +17,7 @@ class ShogiPlayerHeader extends StatelessWidget {
   final List<ShogiPieceType>? handPieces;
   final ShogiPieceType? selectedHandPiece;
   final Function(ShogiPieceType pieceType)? onHandPieceTap;
+  final VoidCallback? onUndoMove;
 
   const ShogiPlayerHeader({
     super.key,
@@ -28,6 +30,7 @@ class ShogiPlayerHeader extends StatelessWidget {
     this.handPieces,
     this.selectedHandPiece,
     this.onHandPieceTap,
+    this.onUndoMove,
   });
 
   // Standard Shogi piece types eligible for hand (Komadai)
@@ -136,6 +139,34 @@ class ShogiPlayerHeader extends StatelessWidget {
                   ],
                 ),
               ),
+              if (onUndoMove != null) ...[
+                InteractiveButton(
+                  onPressed: onUndoMove,
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  backgroundColor: AppColors.surface(context),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: const Color(0xFFEA580C).withValues(alpha: 0.7),
+                    width: 1,
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.replay_rounded, size: 12, color: Color(0xFFFB923C)),
+                      SizedBox(width: 2),
+                      Text(
+                        'Undo',
+                        style: TextStyle(
+                          color: Color(0xFFFB923C),
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 5),
+              ],
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(

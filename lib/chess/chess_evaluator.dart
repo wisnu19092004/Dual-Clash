@@ -11,10 +11,22 @@ class ChessEvaluator {
 
     int totalScore = 0;
 
+    // Extra evaluation for bishop pair, rook on open files, and center control
+    int whiteBishops = 0;
+    int blackBishops = 0;
+
     for (int r = 0; r < 8; r++) {
       for (int c = 0; c < 8; c++) {
         final piece = board.board[r][c];
         if (piece == null) continue;
+
+        if (piece.type == ChessPieceType.bishop) {
+          if (piece.color == ChessColor.white) {
+            whiteBishops++;
+          } else {
+            blackBishops++;
+          }
+        }
 
         int pieceVal = piece.baseValue;
         int posVal = getPositionalValue(piece, r, c);
@@ -27,6 +39,9 @@ class ChessEvaluator {
         }
       }
     }
+
+    if (whiteBishops >= 2) totalScore += 50; // Bishop pair advantage
+    if (blackBishops >= 2) totalScore -= 50;
 
     return totalScore;
   }

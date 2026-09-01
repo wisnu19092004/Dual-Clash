@@ -102,6 +102,8 @@ class ChessMove {
     this.isEnPassant = false,
   });
 
+  String get notation => toString();
+
   @override
   String toString() {
     return '${from.notation}->${to.notation}${promotion != null ? '(${promotion!.name})' : ''}';

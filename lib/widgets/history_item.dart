@@ -65,8 +65,7 @@ class HistoryItem extends StatelessWidget {
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
-              shape: isChess ? BoxShape.circle : BoxShape.rectangle,
-              borderRadius: isChess ? null : BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(8),
               border: Border.all(
                 color: isChess
                     ? const Color(0xFFD97706)
