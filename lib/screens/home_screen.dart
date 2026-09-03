@@ -11,7 +11,6 @@ import 'package:game_papan/widgets/game_setup_dialog.dart';
 import 'package:game_papan/widgets/game_card.dart';
 import 'package:game_papan/widgets/home_top_bar.dart';
 import 'package:game_papan/widgets/quick_rating_summary_card.dart';
-import 'package:game_papan/widgets/google_auth_banner.dart';
 import 'package:game_papan/theme/app_colors.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -240,9 +239,6 @@ class _HomeMainContent extends StatelessWidget {
                     },
                   ),
                   const SizedBox(height: 20),
-
-                  if (user != null && !user.id.startsWith('google_'))
-                    GoogleAuthBanner(auth: auth),
                 ],
               ),
             ),

@@ -68,6 +68,7 @@ class ProfileHeaderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final lang = context.watch<LanguageProvider>();
+    final isLoggedIn = auth.isLoggedIn;
     final isGoogleUser = user.id.startsWith('google_');
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -181,7 +182,7 @@ class ProfileHeaderCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          if (!isGoogleUser)
+          if (!isLoggedIn)
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [

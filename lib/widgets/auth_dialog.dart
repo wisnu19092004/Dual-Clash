@@ -87,24 +87,42 @@ class _AuthDialogState extends State<AuthDialog> {
 
     setState(() => _errorMessage = null);
 
-    // Update or Register player data
+    String? errorResult;
     final displayName = _isRegister
         ? name
         : (name.isNotEmpty ? name : email.split('@').first);
-    await widget.auth.updateProfile(displayName: displayName);
+
+    if (_isRegister) {
+      errorResult = await widget.auth.signUpWithEmail(
+        email: email,
+        password: password,
+        displayName: displayName,
+      );
+    } else {
+      errorResult = await widget.auth.signInWithEmail(
+        email: email,
+        password: password,
+      );
+    }
 
     if (!mounted) return;
-    Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          lang.trArgs(_isRegister ? 'register_success' : 'login_success', {
-            'name': displayName,
-          }),
+    if (errorResult == null) {
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            lang.trArgs(_isRegister ? 'register_success' : 'login_success', {
+              'name': displayName,
+            }),
+          ),
+          backgroundColor: AppColors.success,
         ),
-        backgroundColor: AppColors.success,
-      ),
-    );
+      );
+    } else {
+      setState(() {
+        _errorMessage = errorResult;
+      });
+    }
   }
 
   @override

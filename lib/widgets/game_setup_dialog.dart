@@ -16,6 +16,7 @@ import 'package:game_papan/widgets/game_mode_selector.dart';
 import 'package:game_papan/widgets/bot_difficulty_selector.dart';
 import 'package:game_papan/widgets/coach_difficulty_selector.dart';
 import 'package:game_papan/widgets/match_duration_selector.dart';
+import 'package:game_papan/widgets/online_room_dialog.dart';
 import 'package:game_papan/theme/app_colors.dart';
 
 class GameSetupDialog extends StatefulWidget {
@@ -189,6 +190,17 @@ class _GameSetupDialogState extends State<GameSetupDialog> {
                 child: InteractiveButton(
                   onPressed: () {
                     Navigator.pop(context);
+                    if (_selectedMode == GameMode.onlineMatch) {
+                      showDialog(
+                        context: context,
+                        builder: (_) => OnlineRoomDialog(
+                          gameType: widget.gameType,
+                          durationMinutes: _matchDurationMinutes,
+                        ),
+                      );
+                      return;
+                    }
+
                     final isFirstPlayer = Random().nextBool();
                     if (isChess) {
                       Navigator.push(

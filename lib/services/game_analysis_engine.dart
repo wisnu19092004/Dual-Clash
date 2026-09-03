@@ -406,11 +406,15 @@ class GameAnalysisEngine {
       replayBoard.makeMove(move);
     }
 
-    final accP1 = p1MoveCount == 0 ? 90.0 : (p1ScoreTotal / p1MoveCount);
-    final accP2 = p2MoveCount == 0 ? 85.0 : (p2ScoreTotal / p2MoveCount);
+    final rawP1 = p1MoveCount == 0 ? 50.0 : (p1ScoreTotal / p1MoveCount);
+    final rawP2 = p2MoveCount == 0 ? 50.0 : (p2ScoreTotal / p2MoveCount);
+
+    final sumRaw = rawP1 + rawP2;
+    final accP1 = sumRaw == 0 ? 50.0 : (rawP1 / sumRaw) * 100.0;
+    final accP2 = 100.0 - accP1;
 
     String summaryKey = 'analysis_summary_balanced';
-    if (accP1 >= 90) {
+    if (accP1 >= 65.0 || accP2 >= 65.0) {
       summaryKey = 'analysis_summary_mastery';
     } else if (blunder > 2) {
       summaryKey = 'analysis_summary_blunders';
@@ -503,11 +507,15 @@ class GameAnalysisEngine {
       replayBoard.makeMove(move);
     }
 
-    final accP1 = p1MoveCount == 0 ? 90.0 : (p1ScoreTotal / p1MoveCount);
-    final accP2 = p2MoveCount == 0 ? 85.0 : (p2ScoreTotal / p2MoveCount);
+    final rawShogiP1 = p1MoveCount == 0 ? 50.0 : (p1ScoreTotal / p1MoveCount);
+    final rawShogiP2 = p2MoveCount == 0 ? 50.0 : (p2ScoreTotal / p2MoveCount);
+
+    final sumShogiRaw = rawShogiP1 + rawShogiP2;
+    final accShogiP1 = sumShogiRaw == 0 ? 50.0 : (rawShogiP1 / sumShogiRaw) * 100.0;
+    final accShogiP2 = 100.0 - accShogiP1;
 
     String summaryKey = 'analysis_summary_balanced';
-    if (accP1 >= 90) {
+    if (accShogiP1 >= 65.0 || accShogiP2 >= 65.0) {
       summaryKey = 'analysis_summary_mastery';
     } else if (blunder > 2) {
       summaryKey = 'analysis_summary_blunders';
@@ -516,8 +524,8 @@ class GameAnalysisEngine {
     }
 
     return GameAnalysisReport(
-      accuracyPlayer1: double.parse(accP1.toStringAsFixed(1)),
-      accuracyPlayer2: double.parse(accP2.toStringAsFixed(1)),
+      accuracyPlayer1: double.parse(accShogiP1.toStringAsFixed(1)),
+      accuracyPlayer2: double.parse(accShogiP2.toStringAsFixed(1)),
       brilliantCount: brilliant,
       bestCount: best,
       goodCount: good,

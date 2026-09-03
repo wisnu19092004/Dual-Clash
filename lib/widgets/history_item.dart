@@ -34,10 +34,17 @@ class HistoryItem extends StatelessWidget {
       badgeText = lang.tr('loss');
     }
 
-    final formattedDate = DateFormat(
-      'dd MMM yyyy, HH:mm',
-      lang.currentLocale.toLanguageTag(),
-    ).format(record.timestamp);
+    String formattedDate;
+    try {
+      formattedDate = DateFormat(
+        'dd MMM yyyy, HH:mm',
+        lang.currentLocale.toLanguageTag(),
+      ).format(record.timestamp);
+    } catch (_) {
+      formattedDate = DateFormat(
+        'dd MMM yyyy, HH:mm',
+      ).format(record.timestamp);
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),

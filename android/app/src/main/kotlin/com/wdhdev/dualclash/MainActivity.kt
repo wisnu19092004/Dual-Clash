@@ -1,4 +1,4 @@
-package com.example.game_papan
+package com.wdhdev.dualclash
 
 import io.flutter.embedding.android.FlutterActivity
 

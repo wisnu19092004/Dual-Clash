@@ -22,6 +22,7 @@ import 'package:game_papan/widgets/game_status_bar.dart';
 import 'package:game_papan/widgets/match_end_dialog.dart';
 import 'package:game_papan/widgets/confirm_dialog.dart';
 import 'package:game_papan/services/game_analysis_engine.dart';
+import 'package:game_papan/services/online_multiplayer_service.dart';
 import 'package:game_papan/widgets/game_analysis_dialog.dart';
 import 'package:game_papan/widgets/chess_promotion_choice_dialog.dart';
 import 'package:game_papan/widgets/interactive_button.dart';
@@ -64,10 +65,55 @@ class _ChessGameScreenState extends State<ChessGameScreen> {
 
   bool get _isUnlimitedTimer => widget.durationMinutes == 0;
 
+  StreamSubscription? _onlineMoveSub;
+
   @override
   void initState() {
     super.initState();
     _startNewGame();
+    if (widget.mode == GameMode.onlineMatch) {
+      _listenToOnlineEvents();
+    }
+  }
+
+  void _listenToOnlineEvents() {
+    _onlineMoveSub = OnlineMultiplayerService.onGameEvent.listen((event) {
+      if (!mounted || _gameOver) return;
+      if (event.containsKey('fromCol') && event.containsKey('toCol')) {
+        final from = ChessPosition(event['fromCol'], event['fromRow']);
+        final to = ChessPosition(event['toCol'], event['toRow']);
+        final promoType = event['promotion'] != null
+            ? ChessPieceType.values.byName(event['promotion'])
+            : null;
+
+        final legalMoves = _board.getAllLegalMoves(_board.turn);
+        final matchMove = legalMoves.firstWhere(
+          (m) => m.from == from && m.to == to,
+          orElse: () => ChessMove(
+            from: from,
+            to: to,
+            promotion: promoType,
+          ),
+        );
+        _applyMove(matchMove, isFromOnline: true);
+      } else if (event.containsKey('resigned') && event['resigned'] == true) {
+        _onGameEnded(
+          outcome: MatchOutcome.win,
+          title: 'Lawan Menyerah!',
+          message: 'Lawan Anda telah menyerah dari pertandingan online.',
+        );
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _onlineMoveSub?.cancel();
+    if (widget.mode == GameMode.onlineMatch) {
+      OnlineMultiplayerService.leaveRoom();
+    }
+    _matchTimer?.cancel();
+    super.dispose();
   }
 
   void _startNewGame() {
@@ -140,16 +186,12 @@ class _ChessGameScreenState extends State<ChessGameScreen> {
     );
   }
 
-  @override
-  void dispose() {
-    _matchTimer?.cancel();
-    super.dispose();
-  }
-
   void _onSquareTap(int row, int col) {
     if (_gameOver || _isAiThinking) return;
 
-    if ((widget.mode == GameMode.vsBot || widget.mode == GameMode.coach) &&
+    if ((widget.mode == GameMode.vsBot ||
+            widget.mode == GameMode.coach ||
+            widget.mode == GameMode.onlineMatch) &&
         _board.turn != widget.playerColor) {
       return;
     }
@@ -236,6 +278,10 @@ class _ChessGameScreenState extends State<ChessGameScreen> {
   }
 
   void _executePlayerMove(ChessMove move) {
+    _applyMove(move, isFromOnline: false);
+  }
+
+  void _applyMove(ChessMove move, {bool isFromOnline = false}) {
     final movingPiece = _board.getPiece(move.from);
     ChessMove finalMove = move;
     if (move.promotion == null) {
@@ -280,6 +326,17 @@ class _ChessGameScreenState extends State<ChessGameScreen> {
       _selectedPosition = null;
       _validMovesForSelected = [];
     });
+
+    // Broadcast move to opponent if playing online
+    if (widget.mode == GameMode.onlineMatch && !isFromOnline) {
+      OnlineMultiplayerService.sendMove({
+        'fromCol': finalMove.from.col,
+        'fromRow': finalMove.from.row,
+        'toCol': finalMove.to.col,
+        'toRow': finalMove.to.row,
+        'promotion': finalMove.promotion?.name,
+      });
+    }
 
     _checkGameOverState();
 
@@ -379,6 +436,41 @@ class _ChessGameScreenState extends State<ChessGameScreen> {
     );
   }
 
+  MatchOutcome? _lastOutcome;
+  int _lastRatingDelta = 0;
+  String _lastEndTitle = '';
+  String _lastEndMessage = '';
+
+  void _showMatchEndDialog() {
+    if (!mounted || _lastOutcome == null) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => MatchEndDialog(
+        outcome: _lastOutcome!,
+        ratingDelta: _lastRatingDelta,
+        gameType: GameType.chess,
+        gameMode: widget.mode,
+        title: _lastEndTitle,
+        message: _lastEndMessage,
+        onAnalyzeGame: () {
+          Navigator.pop(ctx);
+          _showPostGameAnalysisReport();
+        },
+        onPlayAgain: () {
+          Navigator.pop(ctx);
+          _startNewGame();
+        },
+        onMainMenu: () {
+          Navigator.pop(ctx);
+          if (mounted) {
+            Navigator.of(context).pop();
+          }
+        },
+      ),
+    );
+  }
+
   Future<void> _onGameEnded({
     required MatchOutcome outcome,
     required String title,
@@ -398,6 +490,7 @@ class _ChessGameScreenState extends State<ChessGameScreen> {
     final ratingDelta = await authService.recordMatchResult(
       gameType: GameType.chess,
       gameMode: widget.mode,
+      coachLevel: widget.coachLevel,
       outcome: outcome,
       opponentRating: opponentRating,
       opponentName: opponentName,
@@ -406,36 +499,15 @@ class _ChessGameScreenState extends State<ChessGameScreen> {
 
     if (!mounted) return;
 
+    _lastOutcome = outcome;
+    _lastRatingDelta = ratingDelta;
+    _lastEndTitle = title;
+    _lastEndMessage = message;
+
     AdService.instance.showPostMatchInterstitialAd(
       context,
       onAdClosed: () {
-        if (!mounted) return;
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (ctx) => MatchEndDialog(
-            outcome: outcome,
-            ratingDelta: ratingDelta,
-            gameType: GameType.chess,
-            gameMode: widget.mode,
-            title: title,
-            message: message,
-            onAnalyzeGame: () {
-              Navigator.pop(ctx);
-              _showPostGameAnalysisReport();
-            },
-            onPlayAgain: () {
-              Navigator.pop(ctx);
-              _startNewGame();
-            },
-            onMainMenu: () {
-              Navigator.pop(ctx);
-              if (mounted) {
-                Navigator.of(context).pop();
-              }
-            },
-          ),
-        );
+        _showMatchEndDialog();
       },
     );
   }
@@ -448,12 +520,15 @@ class _ChessGameScreenState extends State<ChessGameScreen> {
 
     showDialog(
       context: context,
-      barrierDismissible: true,
+      barrierDismissible: false,
       builder: (_) => GameAnalysisDialog(
         report: report,
         gameType: GameType.chess,
         player1Name: widget.playerColor == ChessColor.white ? 'Putih (Anda)' : 'Putih (Lawan)',
         player2Name: widget.playerColor == ChessColor.black ? 'Hitam (Anda)' : 'Hitam (Lawan)',
+        onBackToMatchEnd: () {
+          _showMatchEndDialog();
+        },
         onPlayAgain: () => _startNewGame(),
         onMainMenu: () {
           if (mounted) Navigator.of(context).pop();

@@ -47,7 +47,7 @@ class GameModeSelector extends StatelessWidget {
                 isSelected: selectedMode == GameMode.vsBot,
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
             Expanded(
               child: _buildOption(
                 context: context,
@@ -58,15 +58,30 @@ class GameModeSelector extends StatelessWidget {
                 isSelected: selectedMode == GameMode.coach,
               ),
             ),
-            const SizedBox(width: 8),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
             Expanded(
               child: _buildOption(
                 context: context,
                 mode: GameMode.vsPlayer,
                 title: langProvider.tr('vs_player'),
                 subtitle: langProvider.tr('vs_player_sub'),
-                icon: Icons.people_outline,
+                icon: Icons.phone_android_rounded,
                 isSelected: selectedMode == GameMode.vsPlayer,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: _buildOption(
+                context: context,
+                mode: GameMode.onlineMatch,
+                title: langProvider.tr('vs_online'),
+                subtitle: langProvider.tr('vs_online_sub'),
+                icon: Icons.wifi_tethering_rounded,
+                isSelected: selectedMode == GameMode.onlineMatch,
               ),
             ),
           ],
@@ -86,7 +101,9 @@ class GameModeSelector extends StatelessWidget {
     return InteractiveButton(
       onPressed: () => onSelected(mode),
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
-      backgroundColor: isSelected ? activeColor.withValues(alpha: 0.2) : AppColors.surfaceDark(context),
+      backgroundColor: isSelected
+          ? activeColor.withValues(alpha: 0.2)
+          : AppColors.surfaceDark(context),
       borderRadius: BorderRadius.circular(14),
       border: Border.all(
         color: isSelected ? activeColor : AppColors.borderColor(context),
@@ -94,7 +111,13 @@ class GameModeSelector extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Icon(icon, color: isSelected ? activeColor : AppColors.textSecondaryColor(context), size: 22),
+          Icon(
+            icon,
+            color: isSelected
+                ? activeColor
+                : AppColors.textSecondaryColor(context),
+            size: 20,
+          ),
           const SizedBox(height: 4),
           Text(
             title,
@@ -114,7 +137,9 @@ class GameModeSelector extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              color: isSelected ? activeColor : AppColors.textSecondaryColor(context),
+              color: isSelected
+                  ? activeColor
+                  : AppColors.textSecondaryColor(context),
               fontSize: 9,
             ),
           ),
@@ -123,3 +148,4 @@ class GameModeSelector extends StatelessWidget {
     );
   }
 }
+

@@ -20,6 +20,7 @@ import 'package:game_papan/widgets/game_emblem_icon.dart';
 import 'package:game_papan/widgets/shogi_board_view.dart';
 import 'package:game_papan/widgets/shogi_player_header.dart';
 import 'package:game_papan/services/game_analysis_engine.dart';
+import 'package:game_papan/services/online_multiplayer_service.dart';
 import 'package:game_papan/widgets/game_analysis_dialog.dart';
 import 'package:game_papan/widgets/shogi_promotion_choice_dialog.dart';
 import 'package:game_papan/widgets/game_status_bar.dart';
@@ -65,10 +66,62 @@ class _ShogiGameScreenState extends State<ShogiGameScreen> {
   bool get _isCoachMode => widget.mode == GameMode.coach;
   bool get _isUnlimitedTimer => widget.durationMinutes == 0;
 
+  StreamSubscription? _onlineMoveSub;
+
   @override
   void initState() {
     super.initState();
     _startNewGame();
+    if (widget.mode == GameMode.onlineMatch) {
+      _listenToOnlineEvents();
+    }
+  }
+
+  void _listenToOnlineEvents() {
+    _onlineMoveSub = OnlineMultiplayerService.onGameEvent.listen((event) {
+      if (!mounted || _gameOver) return;
+      if (event.containsKey('toRow') && event.containsKey('toCol')) {
+        final to = ShogiPosition(event['toRow'], event['toCol']);
+        final isDrop = event['isDrop'] == true;
+        final from = !isDrop && event.containsKey('fromRow') && event.containsKey('fromCol')
+            ? ShogiPosition(event['fromRow'], event['fromCol'])
+            : null;
+        final promote = event['promote'] == true;
+        final pieceType = ShogiPieceType.values.byName(event['pieceType']);
+
+        final legalMoves = _board.getAllLegalMoves();
+        final matchMove = legalMoves.firstWhere(
+          (m) =>
+              m.to == to &&
+              m.from == from &&
+              m.promote == promote &&
+              (isDrop ? m.dropPieceType == pieceType : true),
+          orElse: () => ShogiMove(
+            from: from,
+            to: to,
+            dropPieceType: isDrop ? pieceType : null,
+            promote: promote,
+          ),
+        );
+        _applyMove(matchMove, isFromOnline: true);
+      } else if (event.containsKey('resigned') && event['resigned'] == true) {
+        _onGameEnded(
+          outcome: MatchOutcome.win,
+          title: 'Lawan Menyerah!',
+          message: 'Lawan Anda telah menyerah dari pertandingan online.',
+        );
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _onlineMoveSub?.cancel();
+    if (widget.mode == GameMode.onlineMatch) {
+      OnlineMultiplayerService.leaveRoom();
+    }
+    _matchTimer?.cancel();
+    super.dispose();
   }
 
   void _startNewGame() {
@@ -142,16 +195,12 @@ class _ShogiGameScreenState extends State<ShogiGameScreen> {
     );
   }
 
-  @override
-  void dispose() {
-    _matchTimer?.cancel();
-    super.dispose();
-  }
-
   void _onSquareTap(int row, int col) {
     if (_gameOver || _isAiThinking) return;
 
-    if ((widget.mode == GameMode.vsBot || widget.mode == GameMode.coach) &&
+    if ((widget.mode == GameMode.vsBot ||
+            widget.mode == GameMode.coach ||
+            widget.mode == GameMode.onlineMatch) &&
         _board.turn != widget.playerSide) {
       return;
     }
@@ -202,7 +251,9 @@ class _ShogiGameScreenState extends State<ShogiGameScreen> {
 
   void _onHandPieceTap(ShogiPieceType pieceType) {
     if (_gameOver || _isAiThinking) return;
-    if ((widget.mode == GameMode.vsBot || widget.mode == GameMode.coach) &&
+    if ((widget.mode == GameMode.vsBot ||
+            widget.mode == GameMode.coach ||
+            widget.mode == GameMode.onlineMatch) &&
         _board.turn != widget.playerSide) {
       return;
     }
@@ -237,6 +288,10 @@ class _ShogiGameScreenState extends State<ShogiGameScreen> {
   }
 
   void _executePlayerMove(ShogiMove move) {
+    _applyMove(move, isFromOnline: false);
+  }
+
+  void _applyMove(ShogiMove move, {bool isFromOnline = false}) {
     final movingPiece = move.from == null ? null : _board.getPiece(move.from!);
     if (move.capturedPiece != null) {
       SoundEffects.playCapturePiece();
@@ -264,6 +319,19 @@ class _ShogiGameScreenState extends State<ShogiGameScreen> {
       _selectedHandPiece = null;
       _validMoves = [];
     });
+
+    // Broadcast move to opponent if playing online
+    if (widget.mode == GameMode.onlineMatch && !isFromOnline) {
+      OnlineMultiplayerService.sendMove({
+        'isDrop': move.isDrop,
+        'fromRow': move.from?.row,
+        'fromCol': move.from?.col,
+        'toRow': move.to.row,
+        'toCol': move.to.col,
+        'promote': move.promote,
+        'pieceType': move.isDrop ? move.dropPieceType?.name : movingPiece?.type.name,
+      });
+    }
 
     _checkGameOverState();
 
@@ -357,6 +425,41 @@ class _ShogiGameScreenState extends State<ShogiGameScreen> {
     );
   }
 
+  MatchOutcome? _lastOutcome;
+  int _lastRatingDelta = 0;
+  String _lastEndTitle = '';
+  String _lastEndMessage = '';
+
+  void _showMatchEndDialog() {
+    if (!mounted || _lastOutcome == null) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => MatchEndDialog(
+        outcome: _lastOutcome!,
+        ratingDelta: _lastRatingDelta,
+        gameType: GameType.shogi,
+        gameMode: widget.mode,
+        title: _lastEndTitle,
+        message: _lastEndMessage,
+        onAnalyzeGame: () {
+          Navigator.pop(ctx);
+          _showPostGameAnalysisReport();
+        },
+        onPlayAgain: () {
+          Navigator.pop(ctx);
+          _startNewGame();
+        },
+        onMainMenu: () {
+          Navigator.pop(ctx);
+          if (mounted) {
+            Navigator.of(context).pop();
+          }
+        },
+      ),
+    );
+  }
+
   Future<void> _onGameEnded({
     required MatchOutcome outcome,
     required String title,
@@ -376,6 +479,7 @@ class _ShogiGameScreenState extends State<ShogiGameScreen> {
     final ratingDelta = await authService.recordMatchResult(
       gameType: GameType.shogi,
       gameMode: widget.mode,
+      coachLevel: widget.coachLevel,
       outcome: outcome,
       opponentRating: opponentRating,
       opponentName: opponentName,
@@ -384,36 +488,15 @@ class _ShogiGameScreenState extends State<ShogiGameScreen> {
 
     if (!mounted) return;
 
+    _lastOutcome = outcome;
+    _lastRatingDelta = ratingDelta;
+    _lastEndTitle = title;
+    _lastEndMessage = message;
+
     AdService.instance.showPostMatchInterstitialAd(
       context,
       onAdClosed: () {
-        if (!mounted) return;
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (ctx) => MatchEndDialog(
-            outcome: outcome,
-            ratingDelta: ratingDelta,
-            gameType: GameType.shogi,
-            gameMode: widget.mode,
-            title: title,
-            message: message,
-            onAnalyzeGame: () {
-              Navigator.pop(ctx);
-              _showPostGameAnalysisReport();
-            },
-            onPlayAgain: () {
-              Navigator.pop(ctx);
-              _startNewGame();
-            },
-            onMainMenu: () {
-              Navigator.pop(ctx);
-              if (mounted) {
-                Navigator.of(context).pop();
-              }
-            },
-          ),
-        );
+        _showMatchEndDialog();
       },
     );
   }
@@ -426,12 +509,15 @@ class _ShogiGameScreenState extends State<ShogiGameScreen> {
 
     showDialog(
       context: context,
-      barrierDismissible: true,
+      barrierDismissible: false,
       builder: (_) => GameAnalysisDialog(
         report: report,
         gameType: GameType.shogi,
         player1Name: widget.playerSide == ShogiPlayer.sente ? 'Sente (Anda)' : 'Sente (Lawan)',
         player2Name: widget.playerSide == ShogiPlayer.gote ? 'Gote (Anda)' : 'Gote (Lawan)',
+        onBackToMatchEnd: () {
+          _showMatchEndDialog();
+        },
         onPlayAgain: () => _startNewGame(),
         onMainMenu: () {
           if (mounted) Navigator.of(context).pop();

@@ -12,6 +12,7 @@ class GameAnalysisDialog extends StatelessWidget {
   final GameType gameType;
   final String player1Name;
   final String player2Name;
+  final VoidCallback? onBackToMatchEnd;
   final VoidCallback? onPlayAgain;
   final VoidCallback? onMainMenu;
 
@@ -21,6 +22,7 @@ class GameAnalysisDialog extends StatelessWidget {
     required this.gameType,
     required this.player1Name,
     required this.player2Name,
+    this.onBackToMatchEnd,
     this.onPlayAgain,
     this.onMainMenu,
   });
@@ -44,6 +46,20 @@ class GameAnalysisDialog extends StatelessWidget {
               // Header
               Row(
                 children: [
+                  IconButton(
+                    icon: Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      color: AppColors.textColor(context),
+                      size: 20,
+                    ),
+                    onPressed: () {
+                      Navigator.pop(context);
+                      if (onBackToMatchEnd != null) {
+                        onBackToMatchEnd!();
+                      }
+                    },
+                  ),
+                  const SizedBox(width: 4),
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
@@ -87,7 +103,12 @@ class GameAnalysisDialog extends StatelessWidget {
                       color: AppColors.textSecondaryColor(context),
                       size: 20,
                     ),
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: () {
+                      Navigator.pop(context);
+                      if (onBackToMatchEnd != null) {
+                        onBackToMatchEnd!();
+                      }
+                    },
                   ),
                 ],
               ),

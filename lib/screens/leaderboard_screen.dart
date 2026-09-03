@@ -152,88 +152,104 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
   }
 
   Widget _buildLeaderboardView(GameType gameType, dynamic currentUser) {
-    final players = LeaderboardService.getLeaderboard(
-      gameType: gameType,
-      currentUser: currentUser,
-    );
+    return FutureBuilder<List<LeaderboardPlayer>>(
+      future: LeaderboardService.fetchLeaderboardAsync(
+        gameType: gameType,
+        currentUser: currentUser,
+      ),
+      initialData: LeaderboardService.getLeaderboard(
+        gameType: gameType,
+        currentUser: currentUser,
+      ),
+      builder: (context, snapshot) {
+        final players = snapshot.data ??
+            LeaderboardService.getLeaderboard(
+              gameType: gameType,
+              currentUser: currentUser,
+            );
 
-    final myPlayer = players.firstWhere((p) => p.isCurrentUser);
-    final top3 = players.take(3).toList();
-    final remainingPlayers = players.skip(3).toList();
+        final myPlayer = players.firstWhere(
+          (p) => p.isCurrentUser,
+          orElse: () => players.first,
+        );
+        final top3 = players.take(3).toList();
+        final remainingPlayers = players.skip(3).toList();
 
-    return Column(
-      children: [
-        Expanded(
-          child: SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-            child: Column(
-              children: [
-                // Top 3 Podium
-                if (top3.length >= 3) _buildTop3Podium(top3, gameType),
-                const SizedBox(height: 18),
+        return Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+                child: Column(
+                  children: [
+                    // Top 3 Podium
+                    if (top3.length >= 3) _buildTop3Podium(top3, gameType),
+                    const SizedBox(height: 18),
 
-                // Table Header
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 32,
-                        child: Text(
-                          context.watch<LanguageProvider>().tr('rank'),
-                          style: GoogleFonts.cinzel(
-                            color: AppColors.textMutedColor(context),
-                            fontSize: 10,
-                            fontWeight: FontWeight.w900,
+                    // Table Header
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 32,
+                            child: Text(
+                              context.watch<LanguageProvider>().tr('rank'),
+                              style: GoogleFonts.cinzel(
+                                color: AppColors.textMutedColor(context),
+                                fontSize: 10,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          context.watch<LanguageProvider>().tr('players'),
-                          style: GoogleFonts.cinzel(
-                            color: AppColors.textMutedColor(context),
-                            fontSize: 10,
-                            fontWeight: FontWeight.w900,
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              context.watch<LanguageProvider>().tr('players'),
+                              style: GoogleFonts.cinzel(
+                                color: AppColors.textMutedColor(context),
+                                fontSize: 10,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
                           ),
-                        ),
+                          Text(
+                            context.watch<LanguageProvider>().tr('rating_elo'),
+                            style: GoogleFonts.cinzel(
+                              color: AppColors.textMutedColor(context),
+                              fontSize: 10,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ],
                       ),
-                      Text(
-                        context.watch<LanguageProvider>().tr('rating_elo'),
-                        style: GoogleFonts.cinzel(
-                          color: AppColors.textMutedColor(context),
-                          fontSize: 10,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                    ),
 
-                // List of players rank 4+
-                ListView.separated(
-                  physics: const NeverScrollableScrollPhysics(),
-                  shrinkWrap: true,
-                  itemCount: remainingPlayers.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 6),
-                  itemBuilder: (context, index) {
-                    final p = remainingPlayers[index];
-                    return _buildPlayerRow(p, gameType);
-                  },
+                    // List of players rank 4+
+                    ListView.separated(
+                      physics: const NeverScrollableScrollPhysics(),
+                      shrinkWrap: true,
+                      itemCount: remainingPlayers.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 6),
+                      itemBuilder: (context, index) {
+                        final p = remainingPlayers[index];
+                        return _buildPlayerRow(p, gameType);
+                      },
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
-          ),
-        ),
 
-        // Sticky Bottom "My Rank" Bar
-        _buildMyRankStickyBar(myPlayer, gameType),
-      ],
+            // Sticky Bottom "My Rank" Bar
+            _buildMyRankStickyBar(myPlayer, gameType),
+          ],
+        );
+      },
     );
   }
 

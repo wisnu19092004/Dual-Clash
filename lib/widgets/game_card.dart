@@ -124,17 +124,22 @@ class GameCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                piecesPreview,
-                style: const TextStyle(
-                  color: Color(0xFFFDE68A),
-                  fontSize: 16,
-                  letterSpacing: 2,
+              Expanded(
+                child: Text(
+                  piecesPreview,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFFFDE68A),
+                    fontSize: 15,
+                    letterSpacing: 2,
+                  ),
                 ),
               ),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
+                  horizontal: 12,
                   vertical: 8,
                 ),
                 decoration: BoxDecoration(
@@ -151,13 +156,14 @@ class GameCard extends StatelessWidget {
                   ],
                 ),
                 child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       lang.tr('play_now'),
                       style: GoogleFonts.cinzel(
                         color: const Color(0xFF5C3317),
                         fontWeight: FontWeight.w900,
-                        fontSize: 11,
+                        fontSize: 10.5,
                         letterSpacing: 0.5,
                       ),
                     ),

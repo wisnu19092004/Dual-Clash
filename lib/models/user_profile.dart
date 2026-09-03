@@ -13,6 +13,9 @@ class UserProfile {
   final int shogiWins;
   final int shogiLosses;
   final int shogiDraws;
+  final String themeMode; // 'dark' | 'light'
+  final String languageCode; // 'id' | 'en' | 'ja' | 'ms'
+  final bool soundEnabled;
   final List<MatchRecord> history;
 
   UserProfile({
@@ -28,6 +31,9 @@ class UserProfile {
     this.shogiWins = 0,
     this.shogiLosses = 0,
     this.shogiDraws = 0,
+    this.themeMode = 'dark',
+    this.languageCode = 'id',
+    this.soundEnabled = true,
     this.history = const [],
   });
 
@@ -44,6 +50,9 @@ class UserProfile {
     int? shogiWins,
     int? shogiLosses,
     int? shogiDraws,
+    String? themeMode,
+    String? languageCode,
+    bool? soundEnabled,
     List<MatchRecord>? history,
   }) {
     return UserProfile(
@@ -59,6 +68,9 @@ class UserProfile {
       shogiWins: shogiWins ?? this.shogiWins,
       shogiLosses: shogiLosses ?? this.shogiLosses,
       shogiDraws: shogiDraws ?? this.shogiDraws,
+      themeMode: themeMode ?? this.themeMode,
+      languageCode: languageCode ?? this.languageCode,
+      soundEnabled: soundEnabled ?? this.soundEnabled,
       history: history ?? this.history,
     );
   }
@@ -76,14 +88,17 @@ class UserProfile {
         'shogiWins': shogiWins,
         'shogiLosses': shogiLosses,
         'shogiDraws': shogiDraws,
+        'themeMode': themeMode,
+        'languageCode': languageCode,
+        'soundEnabled': soundEnabled,
         'history': history.map((e) => e.toJson()).toList(),
       };
 
   factory UserProfile.fromJson(Map<String, dynamic> json) => UserProfile(
         id: json['id'] as String,
-        email: json['email'] as String,
-        displayName: json['displayName'] as String,
-        photoUrl: json['photoUrl'] as String,
+        email: json['email'] as String? ?? '',
+        displayName: json['displayName'] as String? ?? 'Player',
+        photoUrl: json['photoUrl'] as String? ?? '',
         chessRating: json['chessRating'] as int? ?? 1200,
         shogiRating: json['shogiRating'] as int? ?? 1200,
         chessWins: json['chessWins'] as int? ?? 0,
@@ -92,6 +107,9 @@ class UserProfile {
         shogiWins: json['shogiWins'] as int? ?? 0,
         shogiLosses: json['shogiLosses'] as int? ?? 0,
         shogiDraws: json['shogiDraws'] as int? ?? 0,
+        themeMode: json['themeMode'] as String? ?? 'dark',
+        languageCode: json['languageCode'] as String? ?? 'id',
+        soundEnabled: json['soundEnabled'] as bool? ?? true,
         history: (json['history'] as List<dynamic>?)
                 ?.map((e) => MatchRecord.fromJson(e as Map<String, dynamic>))
                 .toList() ??

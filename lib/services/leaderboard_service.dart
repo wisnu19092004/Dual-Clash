@@ -1,5 +1,6 @@
 import 'package:game_papan/models/game_enums.dart';
 import 'package:game_papan/models/user_profile.dart';
+import 'package:game_papan/services/supabase_service.dart';
 
 class LeaderboardPlayer {
   final String id;
@@ -77,7 +78,112 @@ class LeaderboardService {
     {'name': 'Beginner Shogi Bot', 'rating': 850, 'wins': 5, 'losses': 35, 'avatar': '🤖', 'title': '10-Kyu (10級)'},
   ];
 
-  /// Get leaderboard with current player injected at their accurate rank
+  static String _calculateTitle(GameType gameType, int rating) {
+    if (gameType == GameType.chess) {
+      if (rating >= 2400) return 'GM';
+      if (rating >= 2200) return 'FM';
+      if (rating >= 1800) return 'Expert';
+      if (rating >= 1400) return 'Adept';
+      return 'Novice';
+    } else {
+      if (rating >= 2600) return 'Meijin (名人)';
+      if (rating >= 2200) return '7-Dan (七段)';
+      if (rating >= 1800) return '3-Dan (三段)';
+      if (rating >= 1400) return '1-Kyu (1級)';
+      return 'Novice';
+    }
+  }
+
+  /// Get leaderboard with async cloud support and fallback to local/preset list
+  static Future<List<LeaderboardPlayer>> fetchLeaderboardAsync({
+    required GameType gameType,
+    required UserProfile? currentUser,
+  }) async {
+    List<Map<String, dynamic>>? cloudList;
+    if (SupabaseService.isReady) {
+      cloudList = await SupabaseService.fetchGlobalLeaderboard(gameType: gameType);
+    }
+
+    final rawList = cloudList != null && cloudList.isNotEmpty
+        ? cloudList
+        : (gameType == GameType.chess ? _chessMasters : _shogiMasters);
+
+    final userRating = gameType == GameType.chess
+        ? (currentUser?.chessRating ?? 1200)
+        : (currentUser?.shogiRating ?? 1200);
+
+    final userWins = gameType == GameType.chess
+        ? (currentUser?.chessWins ?? 0)
+        : (currentUser?.shogiWins ?? 0);
+
+    final userLosses = gameType == GameType.chess
+        ? (currentUser?.chessLosses ?? 0)
+        : (currentUser?.shogiLosses ?? 0);
+
+    final userName = currentUser?.displayName ?? 'Player (Anda)';
+    final userTitle = _calculateTitle(gameType, userRating);
+
+    final allPlayers = <Map<String, dynamic>>[];
+    bool userFound = false;
+
+    for (final m in rawList) {
+      final copy = Map<String, dynamic>.from(m);
+      if (copy['id'] == currentUser?.id) {
+        copy['name'] = '$userName (Anda)';
+        copy['rating'] = userRating;
+        copy['wins'] = userWins;
+        copy['losses'] = userLosses;
+        copy['isCurrentUser'] = true;
+        copy['title'] = userTitle;
+        userFound = true;
+      } else {
+        copy['title'] = copy['title'] ?? _calculateTitle(gameType, copy['rating'] as int? ?? 1200);
+      }
+      allPlayers.add(copy);
+    }
+
+    // Inject current user if not already in cloud list
+    if (!userFound) {
+      allPlayers.add({
+        'name': '$userName (Anda)',
+        'rating': userRating,
+        'wins': userWins,
+        'losses': userLosses,
+        'avatar': currentUser?.photoUrl.isNotEmpty == true ? currentUser!.photoUrl : '👑',
+        'title': userTitle,
+        'isCurrentUser': true,
+        'id': currentUser?.id ?? 'user_me',
+      });
+    }
+
+    allPlayers.sort((a, b) {
+      final int ratingComp = (b['rating'] as int).compareTo(a['rating'] as int);
+      if (ratingComp != 0) return ratingComp;
+      return (b['wins'] as int).compareTo(a['wins'] as int);
+    });
+
+    final result = <LeaderboardPlayer>[];
+    for (int i = 0; i < allPlayers.length; i++) {
+      final item = allPlayers[i];
+      result.add(
+        LeaderboardPlayer(
+          id: item['id'] as String? ?? 'bot_$i',
+          name: item['name'] as String,
+          rating: item['rating'] as int,
+          rank: i + 1,
+          wins: item['wins'] as int,
+          losses: item['losses'] as int,
+          avatar: item['avatar'] as String? ?? '👑',
+          title: item['title'] as String? ?? 'Novice',
+          isCurrentUser: item['isCurrentUser'] as bool? ?? false,
+        ),
+      );
+    }
+
+    return result;
+  }
+
+  /// Synchronous fallback helper for immediate UI rendering
   static List<LeaderboardPlayer> getLeaderboard({
     required GameType gameType,
     required UserProfile? currentUser,
@@ -97,33 +203,7 @@ class LeaderboardService {
         : (currentUser?.shogiLosses ?? 0);
 
     final userName = currentUser?.displayName ?? 'Player (Anda)';
-
-    String userTitle;
-    if (gameType == GameType.chess) {
-      if (userRating >= 2400) {
-        userTitle = 'GM';
-      } else if (userRating >= 2200) {
-        userTitle = 'FM';
-      } else if (userRating >= 1800) {
-        userTitle = 'Expert';
-      } else if (userRating >= 1400) {
-        userTitle = 'Adept';
-      } else {
-        userTitle = 'Novice';
-      }
-    } else {
-      if (userRating >= 2600) {
-        userTitle = 'Meijin (名人)';
-      } else if (userRating >= 2200) {
-        userTitle = '7-Dan (七段)';
-      } else if (userRating >= 1800) {
-        userTitle = '3-Dan (三段)';
-      } else if (userRating >= 1400) {
-        userTitle = '1-Kyu (1級)';
-      } else {
-        userTitle = 'Novice';
-      }
-    }
+    final userTitle = _calculateTitle(gameType, userRating);
 
     final allPlayers = <Map<String, dynamic>>[];
 
@@ -131,19 +211,17 @@ class LeaderboardService {
       allPlayers.add(Map<String, dynamic>.from(m));
     }
 
-    // Inject current user
     allPlayers.add({
       'name': '$userName (Anda)',
       'rating': userRating,
       'wins': userWins,
       'losses': userLosses,
-      'avatar': '👑',
+      'avatar': currentUser?.photoUrl.isNotEmpty == true ? currentUser!.photoUrl : '👑',
       'title': userTitle,
       'isCurrentUser': true,
       'id': currentUser?.id ?? 'user_me',
     });
 
-    // Sort descending by rating, then by wins
     allPlayers.sort((a, b) {
       final int ratingComp = (b['rating'] as int).compareTo(a['rating'] as int);
       if (ratingComp != 0) return ratingComp;

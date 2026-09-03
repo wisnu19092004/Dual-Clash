@@ -312,11 +312,13 @@ class _EditAvatarDialogState extends State<EditAvatarDialog> {
                 width: double.infinity,
                 child: InteractiveButton(
                   onPressed: () async {
-                    final newName = _nameController.text.trim();
+                    final rawName = _nameController.text.trim();
+                    final cleanName = rawName.isEmpty
+                        ? widget.user.displayName
+                        : (rawName.length > 30 ? rawName.substring(0, 30) : rawName);
+
                     await widget.auth.updateProfile(
-                      displayName: newName.isNotEmpty
-                          ? newName
-                          : widget.user.displayName,
+                      displayName: cleanName,
                       photoUrl: _selectedAvatarUrl,
                     );
                     if (context.mounted) {
